@@ -10,10 +10,12 @@ as the next release, never a mutated tag.
 ### Added
 - **Update Thallo from the admin** (off unless you turn it on): on a single server, an owner presses
   Update on the update notice. A separate runner, run by cron as the code owner, stages the release,
-  takes a verified backup, closes the site, installs and provisions it, and checks that PHP-FPM serves
-  it before reopening. A failure before the database could change puts the old code back; any later
-  failure keeps the site closed and offers recovery at `/_update`. See *Updating from the admin* in
-  the upgrading guide. The terminal upgrade is now `composer update glueful/thallo-core -W && php
+  closes the site, takes a verified backup, installs and provisions it, and checks that PHP-FPM
+  serves it before reopening. A failure before the database could change puts the old code back;
+  any later failure keeps the site closed and offers recovery at `/_update`. PHP-FPM only files
+  requests: what the runner trusts lives in `.thallo-update/`, which only the code owner can read,
+  and the runner checks every request against the installed version and your Composer setup. See
+  *Updating from the admin* in the upgrading guide. The terminal upgrade is now `composer update glueful/thallo-core -W && php
   glueful thallo:provision`, followed by `php glueful queue:restart`.
 
 ### Fixed

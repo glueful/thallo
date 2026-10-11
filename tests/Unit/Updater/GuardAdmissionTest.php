@@ -8,7 +8,6 @@ use PHPUnit\Framework\TestCase;
 use Thallo\Core\Updater\Barrier;
 use Thallo\Core\Updater\FileLock;
 use Thallo\Core\Updater\Guard;
-use Thallo\Core\Updater\OperationStore;
 use Thallo\Core\Updater\Paths;
 
 final class GuardAdmissionTest extends TestCase
@@ -21,6 +20,8 @@ final class GuardAdmissionTest extends TestCase
     {
         $this->base = sys_get_temp_dir() . '/thallo-guard-' . bin2hex(random_bytes(4));
         mkdir($this->base . '/storage/framework/updates', 0777, true);
+        mkdir($this->base . '/.thallo-update-control', 0750);
+        touch($this->base . '/.thallo-update-control/admission.lock');
         $this->paths = new Paths($this->base);
         $this->barrier = new Barrier($this->paths);
     }
@@ -50,6 +51,22 @@ final class GuardAdmissionTest extends TestCase
         }
         $health = $this->guard()->web('GET', '/health', [], '');
         self::assertSame(['status' => 'updating'], json_decode($health->body, true));
+    }
+
+    public function testAMissingAdmissionLockAdmitsAndLogsRatherThanTakingTheSiteDown(): void
+    {
+        // PHP-FPM cannot create the lock (the control folder is the runner's). A site whose updater
+        // was never enabled, or whose lock was removed, keeps serving; the runner refuses to close it.
+        unlink($this->paths->admissionLock());
+        $log = $this->base . '/php-error.log';
+        $previous = ini_set('error_log', $log);
+        try {
+            self::assertNull($this->guard()->web('GET', '/about', [], ''));
+        } finally {
+            ini_set('error_log', (string) $previous);
+        }
+        self::assertStringContainsString('admission.lock', (string) file_get_contents($log));
+        self::assertFileDoesNotExist($this->paths->admissionLock(), 'PHP-FPM never creates it');
     }
 
     public function testTheFlagIsRecheckedAfterTheSharedLock(): void
@@ -101,8 +118,7 @@ final class GuardAdmissionTest extends TestCase
                 return parent::admitAfterFirstCheck();
             }
         };
-        $ops = new OperationStore($this->paths, static fn (): int => 1);
-        return new Guard($this->paths, $ops, $barrier, $sleep ?? static function (): void {
+        return new Guard($this->paths, $barrier, $sleep ?? static function (): void {
         });
     }
 }

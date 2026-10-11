@@ -14,7 +14,7 @@ final class UpdatePreflightTest extends TestCase
     protected function setUp(): void
     {
         $this->base = sys_get_temp_dir() . '/thallo-pre-' . bin2hex(random_bytes(4));
-        foreach (['storage/framework/updates', 'bootstrap', 'public', 'vendor'] as $d) {
+        foreach (['storage/framework/updates', '.thallo-update-control', 'bootstrap', 'public', 'vendor'] as $d) {
             mkdir("{$this->base}/{$d}", 0777, true);
         }
         $root = ['require' => ['glueful/thallo-core' => '^1.0.0-beta.101']];
@@ -58,6 +58,8 @@ final class UpdatePreflightTest extends TestCase
         yield 'stale runner' => ['runner_missing', [], ['checked_at' => 1], ''];
         yield 'guard' => ['guard_missing', [], [], 'public/index.php'];
         $old = ['unguarded_processes' => [['pid' => 4242, 'args' => 'php glueful import']]];
+        $insecure = ['layout_problems' => ['.thallo-update is not a real directory']];
+        yield 'insecure layout' => ['insecure_layout', [], $insecure, ''];
         yield 'unguarded processes' => ['unguarded_processes', [], $old, ''];
         yield 'restart not confirmed' => ['restart_required', [], ['guard_ready_at' => null], ''];
         $early = ['guard_installed_at' => 50, 'guard_ready_at' => 40];
@@ -84,7 +86,7 @@ final class UpdatePreflightTest extends TestCase
 
     private function report(array $over): void
     {
-        file_put_contents("{$this->base}/storage/framework/updates/runner.json", json_encode(array_merge([
+        file_put_contents("{$this->base}/.thallo-update-control/runner.json", json_encode(array_merge([
             'checked_at' => 10_000,
             'writable' => true,
             'composer_ok' => true,
@@ -96,6 +98,7 @@ final class UpdatePreflightTest extends TestCase
             'unguarded_processes' => [],
             'guard_installed_at' => 1,
             'guard_ready_at' => 2,
+            'layout_problems' => [],
             'web' => ['status' => 200, 'admission_ok' => true, 'state_writable' => true],
         ], $over)));
     }
@@ -112,5 +115,18 @@ final class UpdatePreflightTest extends TestCase
             static fn (): string => $o['sapi'] ?? 'fpm-fcgi',
             static fn (): int => 10_100,
         );
+    }
+
+    public function testARequestWaitingInTheInboxIsAnUpdateInProgress(): void
+    {
+        file_put_contents("{$this->base}/storage/framework/updates/start.json", '{"target":"1.0.0-beta.102"}');
+        self::assertContains('in_progress', $this->preflight()->check()['reasons']);
+    }
+
+    public function testThePublishedStatusSaysWhenRecoveryIsNeeded(): void
+    {
+        $status = '{"operation":{"status":"recovery_required"}}';
+        file_put_contents("{$this->base}/.thallo-update-control/status.json", $status);
+        self::assertContains('recovery_required', $this->preflight()->check()['reasons']);
     }
 }

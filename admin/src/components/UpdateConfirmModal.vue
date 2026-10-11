@@ -29,7 +29,8 @@ async function start() {
   reasons.value = []
   failed.value = ''
   try {
-    const { token } = await startUpdate()
+    if (!props.target) throw new Error('There is no version to install.')
+    const { token } = await startUpdate(props.target)
     try {
       sessionStorage.setItem(UPDATE_TOKEN_KEY, token)
     } catch {

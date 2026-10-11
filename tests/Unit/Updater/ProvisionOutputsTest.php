@@ -53,7 +53,7 @@ final class ProvisionOutputsTest extends TestCase
         file_put_contents("{$this->base}/bootstrap/cache/extensions.php", '<?php return [];');
 
         $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
-        [$op] = $ops->start('2', '1', 'u');
+        $op = $ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $ops->claim($op['id'], 1, 1);
         $journal = new Journal($ops, $run['id'], $run['owner']);
         ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", $journal);
@@ -81,7 +81,7 @@ final class ProvisionOutputsTest extends TestCase
         exec('rm -rf ' . escapeshellarg("{$this->base}/public/admin/empty"));
 
         $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
-        [$op] = $ops->start('2', '1', 'u');
+        $op = $ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $ops->claim($op['id'], 1, 1);
         $journal = new Journal($ops, $run['id'], $run['owner']);
         ProvisionOutputs::restore($this->base, "{$this->base}/snap", $manifest, "{$this->base}/work", $journal);
@@ -112,7 +112,7 @@ final class ProvisionOutputsTest extends TestCase
         file_put_contents("{$this->base}/public/admin/index.html", 'new admin');
         file_put_contents("{$this->base}/snap/public/admin/index.html", 'tampered');
         $ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
-        [$op] = $ops->start('2', '1', 'u');
+        $op = $ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $ops->claim($op['id'], 1, 1);
         try {
             $journal = new Journal($ops, $run['id'], $run['owner']);

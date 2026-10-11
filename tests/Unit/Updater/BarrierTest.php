@@ -18,6 +18,8 @@ final class BarrierTest extends TestCase
     {
         $this->base = sys_get_temp_dir() . '/thallo-barrier-' . bin2hex(random_bytes(4));
         mkdir($this->base . '/storage/framework/updates', 0777, true);
+        mkdir($this->base . '/.thallo-update-control', 0750);
+        touch($this->base . '/.thallo-update-control/admission.lock');
         $this->barrier = new Barrier(new Paths($this->base));
     }
 
@@ -30,8 +32,8 @@ final class BarrierTest extends TestCase
     {
         $a = $this->barrier->admit();
         $b = $this->barrier->admit();
-        self::assertNotNull($a);
-        self::assertNotNull($b);
+        self::assertIsResource($a);
+        self::assertIsResource($b);
         self::assertNull($this->acquireNow(), 'two admitted holders block the barrier');
         FileLock::release($a);
         self::assertNull($this->acquireNow(), 'one still blocks it');
@@ -47,6 +49,13 @@ final class BarrierTest extends TestCase
         $held = $this->acquireNow();
         self::assertNotNull($held);
         self::assertNull($this->barrier->admit(), 'a held barrier refuses');
+    }
+
+    public function testAMissingAdmissionLockIsReportedNotTreatedAsHeld(): void
+    {
+        unlink($this->base . '/.thallo-update-control/admission.lock');
+        self::assertFalse($this->barrier->admit(), 'PHP-FPM never creates the lock; a missing one is misconfiguration');
+        self::assertFileDoesNotExist($this->base . '/.thallo-update-control/admission.lock');
     }
 
     public function testAcquireGivesUpAfterTheTimeout(): void

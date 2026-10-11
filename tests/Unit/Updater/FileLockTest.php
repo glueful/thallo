@@ -20,17 +20,34 @@ final class FileLockTest extends TestCase
         $dir = sys_get_temp_dir() . '/thallo-lock-' . bin2hex(random_bytes(4));
         mkdir($dir);
         try {
-            foreach (['exclusive', 'shared'] as $kind) {
-                $path = "{$dir}/{$kind}.lock";
-                $h = $kind === 'exclusive' ? FileLock::exclusive($path) : FileLock::shared($path);
-                self::assertNotNull($h);
-                clearstatcache();
-                self::assertSame('0660', substr(sprintf('%o', fileperms($path)), -4), $kind);
-                FileLock::release($h);
-            }
+            $path = "{$dir}/exclusive.lock";
+            $h = FileLock::exclusive($path);
+            self::assertNotNull($h);
+            clearstatcache();
+            self::assertSame('0660', substr(sprintf('%o', fileperms($path)), -4));
+            FileLock::release($h);
         } finally {
             umask($old);
             exec('rm -rf ' . escapeshellarg($dir));
+        }
+    }
+
+    public function testASharedLockOpensTheFileReadOnlyAndNeverCreatesIt(): void
+    {
+        $dir = sys_get_temp_dir() . '/thallo-lock-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        try {
+            self::assertFalse(FileLock::shared("{$dir}/missing.lock"), 'missing: cannot open, distinct from held');
+            self::assertFileDoesNotExist("{$dir}/missing.lock");
+            touch("{$dir}/admission.lock");
+            chmod("{$dir}/admission.lock", 0640); // the web group may only read it (spec §16.1)
+            $h = FileLock::shared("{$dir}/admission.lock");
+            self::assertIsResource($h, 'a shared lock on a read-only descriptor');
+            $held = FileLock::exclusive("{$dir}/admission.lock", false);
+            self::assertNull($held, 'the shared holder blocks the exclusive lock');
+            FileLock::release($h);
+        } finally {
+            exec('chmod -R u+w ' . escapeshellarg($dir) . ' && rm -rf ' . escapeshellarg($dir));
         }
     }
 }

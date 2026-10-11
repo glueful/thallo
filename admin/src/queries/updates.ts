@@ -78,6 +78,9 @@ export const REASON_TEXT: Record<string, string> = {
   recovery_required: 'A previous update needs attention. Open /_update to recover it.',
   unguarded_processes:
     'Processes started before the update guard are still running. Restart them, then run php bin/thallo-updater confirm-restart --yes.',
+  insecure_layout:
+    'The update folders are not laid out safely (owner, modes, or a writable parent folder). Run php glueful thallo:provision as the code owner.',
+  target_changed: 'A newer version appeared since this dialog opened. Close it and check again.',
   restart_required:
     'Restart PHP-FPM and every worker, then confirm with php bin/thallo-updater confirm-restart --yes.',
   no_update: 'There is no newer version to install.',
@@ -109,8 +112,9 @@ export function refusalReasons(err: unknown): string[] {
   return Array.isArray(reasons) ? reasons.map(String) : []
 }
 
-export async function startUpdate(): Promise<{ id: string; token: string }> {
-  const { data, error, response } = await client.POST('/updates')
+/** Files the request for `target`, the version the dialog showed (409 `target_changed` if it moved on). */
+export async function startUpdate(target: string): Promise<{ id: string; token: string }> {
+  const { data, error, response } = await client.POST('/updates', { body: { target } })
   if (error) throw toApiError(error, response)
   return (data as { data: { update: { id: string; token: string } } }).data.update
 }

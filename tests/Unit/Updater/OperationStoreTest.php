@@ -30,31 +30,39 @@ final class OperationStoreTest extends TestCase
 
     public function testStartRecordsTheRequestAndReturnsATokenOnlyOnce(): void
     {
-        [$op, $token] = $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner-uuid');
+        $token = bin2hex(random_bytes(32));
+        $op = $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner-uuid', hash('sha256', $token));
         self::assertSame(Status::REQUESTED, $op['status']);
         self::assertSame(64, strlen($token));
-        $stored = (string) file_get_contents($this->base . '/storage/framework/updates/operation.json');
+        $stored = (string) file_get_contents($this->base . '/.thallo-update/operation.json');
         self::assertStringNotContainsString($token, $stored, 'only the hash is stored');
         self::assertTrue($this->ops->verifyToken($token));
         self::assertFalse($this->ops->verifyToken(str_repeat('0', 64)));
-        $mode = fileperms($this->base . '/storage/framework/updates/operation.json');
-        self::assertSame('0640', substr(sprintf('%o', $mode), -4));
+        self::assertSame(0600, fileperms($this->base . '/.thallo-update/operation.json') & 0777, 'the runner\'s alone');
+        self::assertSame(0700, fileperms($this->base . '/.thallo-update') & 0777);
+        // What PHP-FPM may read: the published status, without owner, journal or token hash inside it.
+        self::assertSame(0640, fileperms($this->base . '/.thallo-update-control/status.json') & 0777);
+        $status = json_decode((string) file_get_contents($this->base . '/.thallo-update-control/status.json'), true);
+        self::assertSame(hash('sha256', $token), $status['token_hash']);
+        self::assertSame([], $status['recovery_options']);
+        self::assertArrayNotHasKey('token_hash', $status['operation']);
+        self::assertArrayNotHasKey('journal', $status['operation']);
     }
 
     public function testASecondStartIsRefusedWhileOneIsOpen(): void
     {
-        $this->ops->start('2', '1', 'u');
+        $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
         $this->expectExceptionObject(new UpdateRefused('in_progress'));
-        $this->ops->start('2', '1', 'u');
+        $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
     }
 
     public function testRecoveryRequiredBlocksANewStart(): void
     {
-        [$op] = $this->ops->start('2', '1', 'u');
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $this->ops->claim($op['id'], 10, 10);
         $this->ops->finish($op['id'], $run['owner'], Status::RECOVERY_REQUIRED, 'provision failed');
         try {
-            $this->ops->start('2', '1', 'u');
+            $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
             self::fail('expected a refusal');
         } catch (UpdateRefused $e) {
             self::assertSame('recovery_required', $e->reason);
@@ -63,7 +71,7 @@ final class OperationStoreTest extends TestCase
 
     public function testClaimsAreCompareAndSetOnTheExpectedOperation(): void
     {
-        [$op] = $this->ops->start('2', '1', 'u');
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
         self::assertNull($this->ops->claim('some-other-id', 10, 10), 'a claim names the operation it read');
         $run = $this->ops->claim($op['id'], 10, 10);
         self::assertSame(32, strlen($run['owner']));
@@ -73,7 +81,7 @@ final class OperationStoreTest extends TestCase
 
     public function testAStaleOwnerCannotWriteAFinishedOrNewerOperation(): void
     {
-        [$first] = $this->ops->start('2', '1', 'u');
+        $first = $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $this->ops->claim($first['id'], 10, 10);
         $this->ops->finish($first['id'], $run['owner'], Status::SUCCEEDED);
         try {
@@ -81,7 +89,7 @@ final class OperationStoreTest extends TestCase
             self::fail('a finished operation accepts no more writes');
         } catch (Fenced) {
         }
-        [$second] = $this->ops->start('3', '2', 'u');
+        $second = $this->ops->start('3', '2', 'u', hash('sha256', 'token'));
         foreach ([[$first['id'], $run['owner']], [$second['id'], $run['owner']]] as [$id, $owner]) {
             try {
                 $this->ops->finish($id, $owner, Status::FAILED, 'late');
@@ -95,7 +103,7 @@ final class OperationStoreTest extends TestCase
 
     public function testTakeOverNeedsTheDeadOwner(): void
     {
-        [$op] = $this->ops->start('2', '1', 'u');
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $this->ops->claim($op['id'], 10, 10);
         self::assertNull($this->ops->takeOver($op['id'], 'not-the-owner', 20, 20));
         $new = $this->ops->takeOver($op['id'], $run['owner'], 20, 20);
@@ -107,12 +115,17 @@ final class OperationStoreTest extends TestCase
 
     public function testRecoveryRequestsNeedTheTokenAndTheState(): void
     {
-        [$op, $token] = $this->ops->start('2', '1', 'u');
+        $token = bin2hex(random_bytes(32));
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', $token));
         self::assertFalse($this->ops->requestRecovery($token, 'reopen'), 'not in recovery');
         $run = $this->ops->claim($op['id'], 10, 10);
         $this->ops->finish($op['id'], $run['owner'], Status::RECOVERY_REQUIRED);
+        self::assertFalse($this->ops->requestRecovery($token, 'rollback'), 'nothing in the journal to roll back');
+        self::assertFalse($this->ops->requestRecovery($token, 'retry_provision'), 'no live swap to retry on');
+        $this->journal($op['id'], ['swap.1']);
         self::assertFalse($this->ops->requestRecovery(str_repeat('a', 64), 'rollback'), 'wrong token');
         self::assertFalse($this->ops->requestRecovery($token, 'format-disk'), 'unknown option');
+        self::assertFalse($this->ops->requestRecovery($token, 'retry_provision'), 'a half swap cannot be retried');
         self::assertTrue($this->ops->requestRecovery($token, 'rollback'));
         $rec = $this->ops->claimRecovery($op['id'], 30, 30);
         self::assertSame('rollback', $rec['recovering']);
@@ -122,10 +135,26 @@ final class OperationStoreTest extends TestCase
 
     public function testRotatingTheTokenInvalidatesTheOldOne(): void
     {
-        [$op, $old] = $this->ops->start('2', '1', 'u');
+        $old = bin2hex(random_bytes(32));
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', $old));
         $new = $this->ops->rotateToken($op['id']);
         self::assertFalse($this->ops->verifyToken($old));
         self::assertTrue($this->ops->verifyToken((string) $new));
         self::assertNull($this->ops->rotateToken('other-id'));
+    }
+
+    /** Gives a recovery_required operation journal entries, as the runner's journal would have. */
+    private function journal(string $id, array $labels): void
+    {
+        $file = $this->base . '/.thallo-update/operation.json';
+        $op = json_decode((string) file_get_contents($file), true);
+        self::assertSame($id, $op['id']);
+        foreach ($labels as $i => $label) {
+            $op['journal'][] = [
+                'seq' => $i + 1, 'kind' => 'forward', 'reverses' => null,
+                'label' => $label, 'from' => 'a', 'to' => 'b', 'phase' => 'done',
+            ];
+        }
+        file_put_contents($file, json_encode($op));
     }
 }

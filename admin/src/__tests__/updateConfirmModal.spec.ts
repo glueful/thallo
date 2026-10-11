@@ -54,6 +54,8 @@ describe('UpdateConfirmModal', () => {
     await flushPromises()
 
     expect(startUpdate).toHaveBeenCalledTimes(1)
+    // The version the dialog showed: the server refuses if a newer one appeared meanwhile.
+    expect(startUpdate).toHaveBeenCalledWith('1.0.0-beta.22')
     expect(sessionStorage.getItem(UPDATE_TOKEN_KEY)).toBe('a'.repeat(64))
     expect(assign).toHaveBeenCalledWith('/_update')
     wrapper.unmount()

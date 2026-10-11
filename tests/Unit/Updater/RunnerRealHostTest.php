@@ -21,6 +21,8 @@ use Thallo\Core\Updater\Status;
  */
 final class RunnerRealHostTest extends TestCase
 {
+    use UpdaterSite;
+
     private string $base;
     private Paths $paths;
     private OperationStore $ops;
@@ -43,13 +45,10 @@ final class RunnerRealHostTest extends TestCase
         }
         $versions = '{"from":"1.0.0-beta.101","target":"1.0.0-beta.102"}';
         file_put_contents($this->base . '/storage/versions.json', $versions);
-        file_put_contents($this->base . '/storage/framework/updates/guard.installed', '100');
-        file_put_contents($this->base . '/storage/framework/updates/guard.ready', '200');
-        mkdir($this->base . '/bootstrap');
-        file_put_contents($this->base . '/bootstrap/update-guard.php', '<?php');
+        $this->layOutUpdaterSite($this->base);
         $this->paths = new Paths($this->base);
         $this->ops = new OperationStore($this->paths, static fn (): int => time());
-        $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner');
+        $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner', hash('sha256', 'token'));
         $this->startServer();
     }
 
@@ -78,7 +77,9 @@ final class RunnerRealHostTest extends TestCase
 
     public function testStaleVerificationOutputIsNotSuccessThroughRealHost(): void
     {
-        file_put_contents($this->paths->log($this->ops->current()['id']), '{"version":"1.0.0-beta.102"}' . "\n");
+        $log = $this->paths->log($this->ops->current()['id']);
+        @mkdir(dirname($log), 0700, true);
+        file_put_contents($log, '{"version":"1.0.0-beta.102"}' . "\n");
         file_put_contents($this->base . '/storage/verify-exit', '1');
         $this->runner()->tick();
         $op = $this->ops->current();

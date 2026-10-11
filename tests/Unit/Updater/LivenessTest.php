@@ -17,6 +17,7 @@ final class LivenessTest extends TestCase
     {
         $this->base = sys_get_temp_dir() . '/thallo-live-' . bin2hex(random_bytes(4));
         mkdir($this->base . '/storage/framework/updates', 0777, true);
+        mkdir($this->base . '/.thallo-update', 0700);
     }
 
     protected function tearDown(): void
@@ -49,10 +50,11 @@ final class LivenessTest extends TestCase
         // starts a grandchild and is killed. Liveness must follow the recovery runner's group.
         $paths = new Paths($this->base);
         $ops = new \Thallo\Core\Updater\OperationStore($paths, static fn (): int => 1);
-        [$op, $token] = $ops->start('2', '1', 'u');
+        $token = bin2hex(random_bytes(32));
+        $op = $ops->start('2', '1', 'u', hash('sha256', $token));
         $dead = $ops->claim($op['id'], 1, 999_999); // a group that does not exist
         $ops->finish($op['id'], $dead['owner'], \Thallo\Core\Updater\Status::RECOVERY_REQUIRED);
-        $ops->requestRecovery($token, 'rollback');
+        self::assertTrue($ops->requestRecovery($token, 'reopen'));
         $p = proc_open([PHP_BINARY, $this->fixture('recover-and-die.php'), $this->base], [], $pipes);
         $this->waitUntil(fn () => !proc_get_status($p)['running'] && is_file($this->base . '/grandchild.pid'));
         proc_close($p);

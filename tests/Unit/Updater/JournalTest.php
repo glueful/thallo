@@ -33,7 +33,7 @@ final class JournalTest extends TestCase
         file_put_contents("{$this->base}/composer.lock", 'old-lock');
         file_put_contents("{$this->base}/stage/composer.lock", 'new-lock');
         $this->ops = new OperationStore(new Paths($this->base), static fn (): int => 1);
-        [$op] = $this->ops->start('2', '1', 'u');
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', 'token'));
         $run = $this->ops->claim($op['id'], 1, 1);
         $this->id = $run['id'];
         $this->owner = $run['owner'];
@@ -50,6 +50,25 @@ final class JournalTest extends TestCase
         self::assertSame('new', file_get_contents("{$this->base}/vendor/marker"));
         (new Journal($this->ops, $this->id, $this->owner))->rollback();
         $this->assertOldTree();
+    }
+
+    public function testARenameOutsideTheFixedSetIsRefusedBeforeItIsJournaledOrDone(): void
+    {
+        file_put_contents("{$this->base}/secret", 'x');
+        $allowed = fn (string $from, string $to): bool => $from === "{$this->base}/vendor"
+            && $to === "{$this->base}/op/vendor.old";
+        $journal = new Journal($this->ops, $this->id, $this->owner, null, $allowed);
+        try {
+            $journal->rename("{$this->base}/secret", "{$this->base}/vendor/secret", 'evil');
+            self::fail('a rename outside the set must be refused');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('fixed set', $e->getMessage());
+        }
+        self::assertFileExists("{$this->base}/secret");
+        self::assertFileDoesNotExist("{$this->base}/vendor/secret");
+        self::assertSame([], $this->ops->current()['journal'], 'nothing journaled, so nothing to reverse later');
+        $journal->rename("{$this->base}/vendor", "{$this->base}/op/vendor.old", 'swap.1');
+        self::assertFileExists("{$this->base}/op/vendor.old/marker");
     }
 
     /** @return iterable<string, array{string}> */

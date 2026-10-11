@@ -14,6 +14,8 @@ use Thallo\Core\Updater\Status;
 
 final class RunnerTest extends TestCase
 {
+    use UpdaterSite;
+
     private string $base;
     private Paths $paths;
     private OperationStore $ops;
@@ -31,13 +33,12 @@ final class RunnerTest extends TestCase
         file_put_contents("{$this->base}/composer.lock", '{"packages":[]}');
         file_put_contents("{$this->base}/vendor/marker", 'old');
         file_put_contents("{$this->base}/public/admin/index.html", 'old admin');
-        file_put_contents("{$this->base}/storage/framework/updates/guard.installed", '100');
-        // The owner confirmed the restart after the guard was installed.
-        file_put_contents("{$this->base}/storage/framework/updates/guard.ready", '200');
+        $this->layOutUpdaterSite($this->base);
         $this->paths = new Paths($this->base);
         $this->ops = new OperationStore($this->paths, fn (): int => $this->host->clock);
         $this->host = new FakeHost($this->base, '1.0.0-beta.101', '1.0.0-beta.102');
-        [, $this->token] = $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner');
+        $this->token = bin2hex(random_bytes(32));
+        $this->ops->start('1.0.0-beta.102', '1.0.0-beta.101', 'owner', hash('sha256', $this->token));
     }
 
     protected function tearDown(): void
@@ -70,7 +71,7 @@ final class RunnerTest extends TestCase
     /** @dataProvider unconfirmedRestarts */
     public function testAQueuedOperationWithoutRestartConfirmationFailsBeforeStaging(?string $ready): void
     {
-        $file = "{$this->base}/storage/framework/updates/guard.ready";
+        $file = "{$this->base}/.thallo-update/guard.ready";
         $ready === null ? unlink($file) : file_put_contents($file, $ready);
         $this->runner()->tick(); // no old processes are visible (FakeHost's ps is empty)
         $op = $this->ops->current();
@@ -133,11 +134,11 @@ final class RunnerTest extends TestCase
         $this->killAt('swap.2.renamed');
         $this->runner()->tick();
         self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status']);
-        $this->ops->requestRecovery($this->token, 'rollback');
+        $this->fileRecoverRequest($this->base, 'rollback', $this->token);
         $this->runner()->tick();
         self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
         self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus(), 'code back; closed until the owner reopens');
-        $this->ops->requestRecovery($this->token, 'reopen');
+        $this->fileRecoverRequest($this->base, 'reopen', $this->token);
         $this->runner()->tick();
         self::assertSame(Status::RECOVERED_BY_OWNER, $this->ops->current()['status']);
         self::assertFileDoesNotExist($this->paths->closedFlag());
@@ -167,7 +168,7 @@ final class RunnerTest extends TestCase
         $this->host->onProvision = fn () => file_put_contents("{$this->base}/public/admin/index.html", 'new admin');
         $this->host->provisionExit = 1;
         $this->runner()->tick();
-        $this->ops->requestRecovery($this->token, 'rollback');
+        $this->fileRecoverRequest($this->base, 'rollback', $this->token);
         $this->runner()->tick();
         self::assertSame('old admin', file_get_contents("{$this->base}/public/admin/index.html"));
         self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
@@ -175,7 +176,9 @@ final class RunnerTest extends TestCase
 
     public function testAFailedVerificationIsAFailureEvenWithAnOldSuccessInTheLog(): void
     {
-        file_put_contents($this->paths->log($this->ops->current()['id']), '{"version":"1.0.0-beta.102"}' . "\n");
+        $log = $this->paths->log($this->ops->current()['id']);
+        @mkdir(dirname($log), 0700, true);
+        file_put_contents($log, '{"version":"1.0.0-beta.102"}' . "\n");
         $this->host->verifyExit = 1;
         $this->runner()->tick();
         self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus(), 'a stale log line is not this answer');
@@ -210,7 +213,7 @@ final class RunnerTest extends TestCase
         $paused = $this->runner(function (string $name) use (&$second): void {
             if ($name === 'tick.before-lock' && $second === null) {
                 $this->runner()->tick();
-                [$op] = $this->ops->start('1.0.0-beta.103', '1.0.0-beta.102', 'owner');
+                $op = $this->ops->start('1.0.0-beta.103', '1.0.0-beta.102', 'owner', hash('sha256', 'token'));
                 $second = $op['id'];
             }
         });
@@ -227,7 +230,7 @@ final class RunnerTest extends TestCase
     {
         $this->runner()->tick();
         $done = $this->ops->current();
-        [$next] = $this->ops->start('1.0.0-beta.103', '1.0.0-beta.102', 'owner');
+        $next = $this->ops->start('1.0.0-beta.103', '1.0.0-beta.102', 'owner', hash('sha256', 'token'));
         $this->expectException(\Thallo\Core\Updater\Fenced::class);
         $this->ops->finish($done['id'], (string) $done['owner'], Status::FAILED, 'late');
     }
@@ -247,7 +250,7 @@ final class RunnerTest extends TestCase
         $writer = (int) file_get_contents($this->base . '/writer.pid');
         try {
             self::assertSame(Status::RECOVERY_REQUIRED, $this->ops->current()['status']);
-            self::assertTrue($this->ops->requestRecovery($this->token, 'reopen'));
+            $this->fileRecoverRequest($this->base, 'reopen', $this->token);
             $this->runner()->tick();
             self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus(), 'not claimed while the group has a member');
             self::assertSame('reopen', $this->ops->current()['recovery_request'], 'the request waits');
@@ -274,6 +277,171 @@ final class RunnerTest extends TestCase
         $this->runner()->tick();
         self::assertSame(Status::REQUESTED, $this->ops->current()['status']);
         FileLock::release($held);
+    }
+
+    public function testAStartRequestFromTheInboxBecomesTheOperation(): void
+    {
+        $this->clearOperation();
+        $token = bin2hex(random_bytes(32));
+        $this->fileStartRequest($this->base, '1.0.0-beta.102', $token);
+        $this->runner()->tick();
+        $op = $this->ops->current();
+        self::assertSame(Status::SUCCEEDED, $op['status'], (string) $op['error']);
+        self::assertSame('1.0.0-beta.102', $op['target']);
+        self::assertSame('1.0.0-beta.101', $op['from'], 'from the live composer.lock, not the request');
+        self::assertSame(hash('sha256', $token), $op['token_hash']);
+        self::assertFileDoesNotExist($this->paths->startRequest(), 'claimed');
+    }
+
+    /** @return iterable<string, array{\Closure(string, string): void, string}> */
+    public static function refusedStartRequests(): iterable
+    {
+        yield 'a symbolic link' => [static function (string $base, string $file): void {
+            file_put_contents($base . '/elsewhere.json', '{}');
+            unlink($file);
+            symlink($base . '/elsewhere.json', $file);
+        }, 'not a valid request'];
+        yield 'over 4 KB' => [static function (string $base, string $file): void {
+            file_put_contents($file, json_encode(['target' => '1.0.0-beta.102', 'pad' => str_repeat('x', 5000)]));
+        }, 'not a valid request'];
+        yield 'an extra key' => [static function (string $base, string $file): void {
+            $r = json_decode((string) file_get_contents($file), true);
+            file_put_contents($file, json_encode($r + ['composer_options' => '--no-plugins']));
+        }, 'not a valid request'];
+        yield 'a target that is not a release' => [static function (string $base, string $file): void {
+            $r = json_decode((string) file_get_contents($file), true);
+            file_put_contents($file, json_encode(['target' => 'dev-main as 1.0.0'] + $r));
+        }, 'not a release version'];
+        yield 'a target not newer than the installed one' => [static function (string $base, string $file): void {
+            $r = json_decode((string) file_get_contents($file), true);
+            file_put_contents($file, json_encode(['target' => '1.0.0-beta.101'] + $r));
+        }, 'not newer'];
+    }
+
+    /**
+     * @dataProvider refusedStartRequests
+     * @param \Closure(string, string): void $tamper
+     */
+    public function testARefusedStartRequestIsRecordedAsFailedAndChangesNothing(\Closure $tamper, string $reason): void
+    {
+        $this->clearOperation();
+        $this->fileStartRequest($this->base, '1.0.0-beta.102', 'token');
+        $file = $this->paths->startRequest();
+        $content = (string) file_get_contents($file);
+        unlink($file);
+        file_put_contents($file, $content);
+        $tamper($this->base, $file);
+        $this->runner()->tick();
+        $op = $this->ops->current();
+        self::assertSame(Status::FAILED, $op['status']);
+        self::assertStringContainsString($reason, (string) $op['error']);
+        self::assertFileDoesNotExist($file);
+        $joined = implode("\n", array_map(static fn (array $c): string => implode(' ', $c), $this->host->calls));
+        self::assertStringNotContainsString('update glueful/thallo-core', $joined, 'nothing was staged');
+        self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
+        if (is_file($this->base . '/elsewhere.json')) {
+            self::assertSame('{}', file_get_contents($this->base . '/elsewhere.json'), 'the link target untouched');
+        }
+    }
+
+    public function testARecoveryWithAWrongTokenOrAnOptionNotOnOfferIsIgnored(): void
+    {
+        $this->host->provisionExit = 1;
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus());
+        $this->fileRecoverRequest($this->base, 'reopen', str_repeat('a', 64));
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus(), 'wrong token');
+        self::assertNull($this->ops->current()['recovery_request']);
+        self::assertFileDoesNotExist($this->paths->recoverRequest(), 'consumed either way');
+        $this->fileRecoverRequest($this->base, 'format_disk', $this->token);
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus(), 'not an option');
+        self::assertNull($this->ops->current()['recovery_request']);
+    }
+
+    public function testRetryProvisionIsRefusedAfterAHalfDoneSwap(): void
+    {
+        $this->killAt('swap.2.renamed');
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus());
+        $published = json_decode((string) file_get_contents($this->paths->status()), true);
+        self::assertSame(['rollback', 'reopen'], $published['recovery_options']);
+        $this->fileRecoverRequest($this->base, 'retry_provision', $this->token);
+        $calls = count($this->host->calls);
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus());
+        self::assertNull($this->ops->current()['recovery_request']);
+        $later = array_slice($this->host->calls, $calls);
+        $joined = implode("\n", array_map(static fn (array $c): string => implode(' ', $c), $later));
+        self::assertStringNotContainsString('thallo:provision', $joined, 'never on a half-swapped vendor');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function opDirOutcomes(): iterable
+    {
+        yield 'failed' => ['failed'];
+        yield 'rolled back' => ['rolled_back'];
+        yield 'a reopen completed after death' => ['death_reopen'];
+    }
+
+    /** @dataProvider opDirOutcomes */
+    public function testTheOperationFolderIsRemovedOnceNothingInItIsLive(string $outcome): void
+    {
+        $id = $this->ops->current()['id'];
+        if ($outcome === 'failed') {
+            $this->host->backupExit = 1;
+            $this->runner()->tick();
+            self::assertSame(Status::FAILED, $this->opStatus());
+        } elseif ($outcome === 'rolled_back') {
+            // The last swap rename fails in-process (the stage cannot be left): the runner settles it
+            // as never happened and reverses the first three itself.
+            $stage = $this->paths->opDir($id) . '/stage';
+            $this->runner(static function (string $name) use ($stage): void {
+                if ($name === 'swap.3.renamed') {
+                    chmod($stage, 0500);
+                }
+                if ($name === 'undo.swap.3.intended') {
+                    chmod($stage, 0700);
+                }
+            })->tick();
+            self::assertSame(Status::ROLLED_BACK, $this->opStatus(), (string) $this->ops->current()['error']);
+            self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
+        } else {
+            $this->killAt('reopen.after-open');
+            $this->runner()->tick();
+            self::assertSame(Status::SUCCEEDED, $this->opStatus());
+        }
+        self::assertDirectoryDoesNotExist($this->paths->opDir($id));
+    }
+
+    public function testNoApplicationChildRunsWhileTheSiteIsClosed(): void
+    {
+        $this->host->provisionExit = 1;
+        $this->runner()->tick();
+        self::assertSame(Status::RECOVERY_REQUIRED, $this->opStatus());
+        self::assertFileExists($this->paths->closedFlag());
+        $calls = count($this->host->calls);
+        $this->runner()->tick(); // nothing requested: an idle tick on a closed site
+        $later = array_slice($this->host->calls, $calls);
+        $joined = implode("\n", array_map(static fn (array $c): string => implode(' ', $c), $later));
+        self::assertStringNotContainsString('glueful', $joined, 'the application never boots while closed');
+    }
+
+    public function testAnInsecureLayoutStopsTheRunnerBeforeItReadsAnything(): void
+    {
+        chmod($this->paths->privateDir(), 0755);
+        $this->runner()->tick();
+        self::assertSame(Status::REQUESTED, $this->opStatus(), 'not claimed');
+        $report = json_decode((string) file_get_contents($this->paths->runnerReport()), true);
+        self::assertContains('.thallo-update must be mode 0700, not 0755.', $report['layout_problems']);
+    }
+
+    /** No operation: a fresh site. */
+    private function clearOperation(): void
+    {
+        unlink($this->paths->operation());
+        @unlink($this->paths->status());
     }
 
     private function opStatus(): string

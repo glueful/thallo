@@ -6,8 +6,8 @@ namespace Thallo\Core\Tests\Integration\Http;
 
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Http\Controllers\AdminUpdateController;
+use Thallo\Core\Http\DTOs\StartUpdateData;
 use Thallo\Core\Tests\Support\AppTestCase;
-use Thallo\Core\Updater\OperationStore;
 use Thallo\Core\Updater\Paths;
 use Thallo\Core\Updates\UpdatePreflight;
 
@@ -56,51 +56,66 @@ final class AdminUpdateApiTest extends AppTestCase
         self::assertSame(401, $this->handle($this->jsonRequest($method, $path))->getStatusCode());
     }
 
-    public function testStartFilesTheRequestAndReturnsTheTokenOnce(): void
+    public function testStartFilesARequestInTheInboxAndReturnsTheTokenOnce(): void
     {
         $controller = $this->controller(ready: true);
-        $response = $controller->start($this->owner());
+        $response = $controller->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
         self::assertSame(202, $response->getStatusCode());
-        $update = json_decode((string) $response->getContent(), true)['data']['update'];
-        self::assertSame(64, strlen($update['token']));
-        $op = json_decode((string) file_get_contents($this->base . '/storage/framework/updates/operation.json'), true);
-        self::assertSame('requested', $op['status']);
-        self::assertSame('1.0.0-beta.102', $op['target']);
-        self::assertSame('owner-uuid', $op['requested_by']);
-        self::assertStringNotContainsString($update['token'], json_encode($op), 'only its hash is stored');
+        $token = json_decode((string) $response->getContent(), true)['data']['update']['token'];
+        self::assertSame(64, strlen($token));
+        $request = json_decode((string) file_get_contents($this->base . '/storage/framework/updates/start.json'), true);
+        self::assertSame(['from', 'requested_at', 'requested_by', 'target', 'token_hash'], $this->sortedKeys($request));
+        self::assertSame('1.0.0-beta.102', $request['target']);
+        self::assertSame(hash('sha256', $token), $request['token_hash'], 'only its hash is filed');
+        self::assertDirectoryDoesNotExist($this->base . '/.thallo-update', 'PHP-FPM writes only the inbox');
 
-        $again = $controller->start($this->owner());
+        $again = $controller->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
         self::assertSame(409, $again->getStatusCode());
-        $body = json_decode((string) $again->getContent(), true);
-        self::assertSame(['in_progress'], $body['error']['details']['reasons']);
+        self::assertSame(['in_progress'], $this->reasons($again));
+    }
+
+    public function testStartRefusesATargetOtherThanTheOnePreflightOffers(): void
+    {
+        $response = $this->controller(ready: true)
+            ->start(new StartUpdateData('1.0.0-beta.999'), $this->owner('1.0.0-beta.999'));
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['target_changed'], $this->reasons($response));
+        self::assertFileDoesNotExist($this->base . '/storage/framework/updates/start.json');
     }
 
     public function testANotReadyPreflightRefusesWithItsReasons(): void
     {
-        $response = $this->controller(ready: false)->start($this->owner());
+        $response = $this->controller(ready: false)
+            ->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
         self::assertSame(409, $response->getStatusCode());
         $reasons = json_decode((string) $response->getContent(), true)['error']['details']['reasons'];
         self::assertSame(['opcache_preload'], $reasons);
-        self::assertFileDoesNotExist($this->base . '/storage/framework/updates/operation.json');
+        self::assertFileDoesNotExist($this->base . '/storage/framework/updates/start.json');
     }
 
-    public function testCancelOnlyBeforeTheRunnerClaims(): void
+    public function testCancelOnlyWhileTheRequestWaitsInTheInbox(): void
     {
         $controller = $this->controller(ready: true);
-        $controller->start($this->owner());
+        $controller->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
         self::assertSame(200, $controller->cancel()->getStatusCode());
         self::assertSame(409, $controller->cancel()->getStatusCode(), 'nothing left to cancel');
 
-        $controller->start($this->owner());
-        $ops = new OperationStore(new Paths($this->base), static fn (): int => time());
-        $ops->claim($ops->current()['id'], 1, null);
+        $controller->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
+        unlink($this->base . '/storage/framework/updates/start.json'); // the runner renamed it in
         self::assertSame(409, $controller->cancel()->getStatusCode(), 'a claimed update cannot be cancelled');
     }
 
     private function controller(bool $ready): AdminUpdateController
     {
-        $ops = new OperationStore(new Paths($this->base), static fn (): int => time());
-        return new AdminUpdateController($this->preflight($ready), $ops);
+        return new AdminUpdateController($this->preflight($ready), new Paths($this->base));
+    }
+
+    /** @return list<string> */
+    private function sortedKeys(array $data): array
+    {
+        $keys = array_keys($data);
+        sort($keys);
+        return $keys;
     }
 
     /**
@@ -109,7 +124,8 @@ final class AdminUpdateApiTest extends AppTestCase
      */
     private function preflight(bool $ready): UpdatePreflight
     {
-        $updates = $this->base . '/storage/framework/updates';
+        $updates = $this->base . '/.thallo-update-control';
+        @mkdir($updates, 0750, true);
         file_put_contents($this->base . '/composer.json', '{"require":{"glueful/thallo-core":"^1.0.0-beta.101"}}');
         @mkdir($this->base . '/bootstrap');
         @mkdir($this->base . '/public');
@@ -129,6 +145,7 @@ final class AdminUpdateApiTest extends AppTestCase
             'unguarded_processes' => [],
             'guard_installed_at' => 1,
             'guard_ready_at' => 2,
+            'layout_problems' => [],
             'web' => ['status' => 200, 'admission_ok' => true, 'state_writable' => true],
         ]));
         return new UpdatePreflight(
@@ -145,10 +162,18 @@ final class AdminUpdateApiTest extends AppTestCase
         );
     }
 
-    private function owner(): Request
+    private function owner(string $target): Request
     {
-        $request = Request::create('/v1/admin/updates', 'POST');
+        $body = (string) json_encode(['target' => $target]);
+        $json = ['CONTENT_TYPE' => 'application/json'];
+        $request = Request::create('/v1/admin/updates', 'POST', [], [], [], $json, $body);
         $request->attributes->set('user', ['uuid' => 'owner-uuid', 'roles' => [], 'scopes' => []]);
         return $request;
+    }
+
+    /** @return list<string> */
+    private function reasons(\Symfony\Component\HttpFoundation\Response $response): array
+    {
+        return json_decode((string) $response->getContent(), true)['error']['details']['reasons'];
     }
 }

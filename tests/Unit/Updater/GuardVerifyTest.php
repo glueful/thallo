@@ -26,9 +26,12 @@ final class GuardVerifyTest extends TestCase
         mkdir($this->base . '/vendor', 0777, true);
         $app = '<?php return new class { public function getContainer(): object { return new \stdClass(); } };';
         file_put_contents($this->base . '/bootstrap/app.php', $app);
+        mkdir($this->base . '/.thallo-update-control', 0750);
+        touch($this->base . '/.thallo-update-control/admission.lock');
         $this->paths = new Paths($this->base);
         $this->ops = new OperationStore($this->paths, static fn (): int => 1);
-        [, $this->token] = $this->ops->start('2', '1', 'u');
+        $this->token = bin2hex(random_bytes(32));
+        $this->ops->start('2', '1', 'u', hash('sha256', $this->token));
         $this->secret = bin2hex(random_bytes(32));
         file_put_contents($this->paths->verifySecret(), $this->secret . "\n");
     }
@@ -45,6 +48,9 @@ final class GuardVerifyTest extends TestCase
         $data = json_decode($r->body, true);
         self::assertArrayHasKey('writable_code', $data);
         self::assertArrayHasKey('validate_timestamps', $data['opcache']);
+        self::assertTrue($data['admission_ok']);
+        self::assertArrayHasKey('control_writable', $data);
+        self::assertArrayHasKey('private_readable', $data);
     }
 
     public function testBootReportsTheVersionAndTheContainer(): void
@@ -87,7 +93,7 @@ final class GuardVerifyTest extends TestCase
 
     private function guard(): Guard
     {
-        return new Guard($this->paths, $this->ops, new Barrier($this->paths), static function (): void {
+        return new Guard($this->paths, new Barrier($this->paths), static function (): void {
         });
     }
 }

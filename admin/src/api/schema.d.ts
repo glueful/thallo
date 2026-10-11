@@ -4650,7 +4650,7 @@ export interface paths {
     put?: never
     /**
      * Start an update
-     * @description Files a request for the update runner to install the target version. Answers 202 with the operation id and a one-time token for the /_update page; 409 with the reasons when preflight is not ready or an update is already open. Requires the system.config permission.
+     * @description Files a request for the update runner to install `target`, the version the dialog showed. Answers 202 with the operation id and a one-time token for the /_update page; 409 with the reasons when preflight is not ready or an update is already open, and 409 `target_changed` when preflight now offers another version. Requires the system.config permission.
      */
     post: operations['postV1AdminUpdates']
     delete?: never
@@ -36920,7 +36920,18 @@ export interface operations {
       path?: never
       cookie?: never
     }
-    requestBody?: never
+    requestBody: {
+      content: {
+        /**
+         * @example {
+         *       "target": "example"
+         *     }
+         */
+        'application/json': {
+          target: string
+        }
+      }
+    }
     responses: {
       /** @description Successful response */
       200: {
