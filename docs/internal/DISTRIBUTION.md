@@ -156,6 +156,12 @@ extensions-browser-managed, never statically listed.
     command (`composer update && php glueful thallo:provision`) run by the deploy user — Composer
     must not run under the web worker. A managed/hosted edition may add a button later; the
     self-hosted product does not.
+    **Amended 2026-10-11 (spec `docs/internal/superpowers/specs/2026-10-11-admin-update-button-design.md`,
+    revision 3):** an explicitly enabled, single-server install may update from the admin. The
+    separation stands: PHP-FPM never writes code; a separate runner, scheduled by cron as the code
+    owner, does the update. Off for Composer installs (`THALLO_ADMIN_UPDATES=false`); a guided
+    installer may offer it after `bin/thallo-updater selftest` passes. The terminal upgrade becomes
+    `composer update glueful/thallo-core -W && php glueful thallo:provision`, then `queue:restart`.
     **Amended 2026-09-12 (shipped in beta.22):** the status is served by the authenticated
     `GET /v1/admin/update-status` (any signed-in admin user since beta.26, so the version shows
     in the user menu; operator-only before), not by `/admin/config` as
