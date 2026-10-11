@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "dc72293a86d8da03824efb0f3b5918c5",
+    "content-hash": "4ee701a38294bcb7cd64ca83523227f8",
     "packages": [
         {
             "name": "composer/semver",
@@ -848,16 +848,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.88.5",
+            "version": "v1.89.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "571ead74b8c67ba077af63b664d488ceaad36536"
+                "reference": "9df2905e1781c66263f8197931655ade1b70e79a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/571ead74b8c67ba077af63b664d488ceaad36536",
-                "reference": "571ead74b8c67ba077af63b664d488ceaad36536",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/9df2905e1781c66263f8197931655ade1b70e79a",
+                "reference": "9df2905e1781c66263f8197931655ade1b70e79a",
                 "shasum": ""
             },
             "require": {
@@ -954,7 +954,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-10-07T22:03:05+00:00"
+            "time": "2026-10-11T17:45:06+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1793,7 +1793,7 @@
                 "glueful/audit": "^1.4",
                 "glueful/commerce": "^1.13",
                 "glueful/email-notification": "^1.14",
-                "glueful/framework": "^1.88.5",
+                "glueful/framework": "^1.89.0",
                 "glueful/i18n": "^1.2",
                 "glueful/import-export": "^1.2.1",
                 "glueful/media": "^1.2",
