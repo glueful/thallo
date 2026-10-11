@@ -156,19 +156,29 @@ this site's code: that is the trade you accept by turning it on.
 ### Turning it on
 
 1. Set `THALLO_ADMIN_UPDATES=true` in `.env`.
-2. Run `php glueful thallo:provision`. It installs `bin/thallo-updater` and
-   `bootstrap/update-guard.php`, which `public/index.php` and `glueful` include. (An install made
-   before this release adds the three include lines from the skeleton's `public/index.php` and
-   `glueful` by hand; the admin says so until they are there.)
+2. Run `php glueful thallo:provision` **as the user that owns the code**. It installs
+   `bin/thallo-updater` and `bootstrap/update-guard.php`, which `public/index.php` and `glueful`
+   include, and creates the three update folders (below). (An install made before this release
+   adds the three include lines from the skeleton's `public/index.php` and `glueful` by hand; the
+   admin says so until they are there.)
 3. Add the runner to cron **as the user that owns the code** (the deploy user, not the web user):
 
    ```text
    * * * * * cd /path/to/site && php bin/thallo-updater tick
    ```
 
-4. Make `storage/framework/updates/` group-writable for the web user and that owner (both in one
-   group, the folder `2770`). The web user writes nothing else: `vendor/`, `composer.json`,
-   `composer.lock` and `public/admin/` stay writable only by the owner.
+4. Put the web user and the code owner in one group, the group of `storage/`. Provision creates
+   the folders with these owners and modes; the runner refuses to act if they change:
+
+   | Folder | Owner | Mode | Holds |
+   | --- | --- | --- | --- |
+   | `.thallo-update/` | code owner | `0700` | everything the runner trusts: the operation and its journal, locks, the staged `vendor/`, Composer's home, logs and the update backups |
+   | `.thallo-update-control/` | code owner, the web group | `0750` (files `0640`) | what the runner publishes for PHP-FPM to read: status, the closed flag, the admission lock, the verification secret |
+   | `storage/framework/updates/` | the web group | `2770` | requests from the admin — the only update folder the web user can write |
+
+   The site's folder and every folder above it must be writable only by the code owner or root, so
+   that nobody else can swap the update folders for others. The web user writes nothing else either:
+   `vendor/`, `composer.json`, `composer.lock` and `public/admin/` stay writable only by the owner.
 5. Restart PHP-FPM (or Apache), every queue worker and every long-running job of the site, then
    run `php bin/thallo-updater confirm-restart --yes`. Processes started before the guard existed
    are invisible to it, so the command refuses while it can still see one; what it cannot see —
@@ -201,7 +211,8 @@ not writable by the runner or **is** writable by PHP-FPM, Composer is missing or
 cannot be reached to verify (`THALLO_UPDATE_VERIFY_URL`), PHP preloads code
 (`opcache.preload`), OPcache never rechecks files (`opcache.validate_timestamps=0`), the site runs
 on a persistent runtime (RoadRunner, Swoole, FrankenPHP worker mode), the restart after enabling
-has not been confirmed, or the release is outside what your `composer.json` allows. Each of those
+has not been confirmed, the update folders are not laid out as above, or the release is outside
+what your `composer.json` allows. Each of those
 means: update from the terminal, as above.
 
 The runner supports this `composer.json` shape: autoload paths inside the project (outside
@@ -215,22 +226,35 @@ else updates from the terminal.
 - **Rolled back** — the swap failed before provision started; the old code is back and verified,
   and the site is open.
 - **Your site needs attention** — anything after provision started, or a runner that stopped. The
-  site **stays closed**. `/_update` shows what happened, the backup's path and three choices:
-  **Roll back the code**, **Retry provision**, and **Reopen the site** (typed confirmation).
+  site **stays closed**. `/_update` shows what happened, the backup's path and the choices the
+  runner's own records allow: **Roll back the code** (while anything it replaced is still in
+  place), **Retry provision** (only when the whole new `vendor/` and `composer.lock` are in place)
+  and **Reopen the site** (typed confirmation).
 
 The database is never restored by Thallo. If an update changed it and you roll the code back,
-restore it yourself first, into an empty schema — `pg_restore --clean` alone drops only what the
-dump holds, so a table the failed update created would survive it:
+restore it yourself first, as the code owner (only that user can read the backup), into an empty
+schema — `pg_restore --clean` alone drops only what the dump holds, so a table the failed update
+created would survive it:
 
 ```bash
 psql --dbname <database> -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
-pg_restore --no-owner --dbname <database> storage/backups/update-<id>/database.dump
+pg_restore --no-owner --dbname <database> .thallo-update/backups/<id>/database.dump
 ```
 
 The same choices work from the terminal, as the code owner:
 `php bin/thallo-updater recover --rollback | --retry-provision | --reopen`. A browser that lost
 its token (another device) gets a new one from `php bin/thallo-updater token`. The last three
 update backups are kept (`THALLO_UPDATE_KEEP_BACKUPS`).
+
+### What the web user can and cannot do
+
+PHP-FPM can file a request to update to the version the admin offers, cancel it before the runner
+picks it up, and choose one of the recovery choices `/_update` shows. It cannot write anything the
+runner trusts. The runner checks every request itself: the version must be a release newer than the
+installed one, and Composer resolves it against your `composer.json` and its repositories, so a
+request never carries a path, a command, Composer options or environment settings. A request from
+the web user therefore cannot make the runner install code other than that release, or rename,
+write or delete anything outside its own fixed set of files.
 
 ### Not supported
 
