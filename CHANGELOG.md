@@ -13,6 +13,9 @@ as the next release, never a mutated tag.
   shop kept the old menu until its own cache expired (an hour by default), so an item added to the
   header showed on `/about` and not on `/shop/categories/men`. A menu change now clears the shop's
   cache as a header or footer save already did.
+- **The editor's sidebar tabs read whole**: with Publishing, SEO, Versions and Commerce side by
+  side, the tabs overran the sidebar's width and every label was cut to an ellipsis ("Publishi…",
+  "S…"). The tabs are now a size smaller and fit with room to spare.
 
 ## [1.0.0-beta.101] - 2026-10-11 — Developer Preview
 
