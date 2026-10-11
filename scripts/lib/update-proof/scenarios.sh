@@ -21,6 +21,13 @@ owner_token() {
     | "$PHP_BIN" -r '$b=json_decode(stream_get_contents(STDIN),true); echo $b["data"]["access_token"] ?? $b["data"]["tokens"]["access_token"] ?? "";'
 }
 
+# What the daily update check records when Packagist has a newer release (the proof's releases exist
+# only in its artifact repository, so nothing else ever records one).
+publish_latest() {
+  (cd "$SITE" && as_deploy "$PHP_BIN" -r '$app = require "bootstrap/app.php";
+    container($app->getContext())->get(Thallo\Contracts\Settings\SystemChannel::class)->put("update.latest", $argv[1]);' "$1")
+}
+
 preflight_json() { curl -s -H "Authorization: Bearer $1" "http://127.0.0.1:$PORT/v1/admin/updates/preflight"; }
 json_get() { "$PHP_BIN" -r '$v=json_decode(stream_get_contents(STDIN),true); foreach(explode(".",$argv[1]) as $k){ $v=$v[$k]??null; } echo is_scalar($v)?var_export($v,true):json_encode($v);' "$1"; }
 
@@ -55,6 +62,7 @@ sc_1() { # Successful update, through the advertised path.
     [[ "$(json_get data.preflight.reasons <<<"$pre")" == '["web_can_write_code"]' ]] || { up_log "$pre"; return 1; }
     request "$TARGET_V"
   else
+    publish_latest "$TARGET_V"; pre="$(preflight_json "$bearer")"
     [[ "$(json_get data.preflight.ready <<<"$pre")" == true ]] || { up_log "$pre"; return 1; }
     [[ "$(json_get data.preflight.target <<<"$pre")" == "'$TARGET_V'" ]] || { up_log "$pre"; return 1; }
     local started; started="$(curl -s -o "$WORK/start.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $bearer" \
@@ -67,7 +75,8 @@ sc_1() { # Successful update, through the advertised path.
   curl -s "http://127.0.0.1:$PORT/admin/" | grep -q 'update-proof 901' || { up_log "admin bundle not republished"; return 1; }
   local backup; backup="$(op_field backup.path)"
   pg_restore --list "$backup/database.dump" >/dev/null || { up_log "the backup cannot be read"; return 1; }
-  [[ "$(stat -f '%Lp' "$backup/database.dump" 2>/dev/null || stat -c '%a' "$backup/database.dump")" == 600 ]] || { up_log "backup not 0600"; return 1; }
+  # PHP, not stat: GNU `stat -f` means filesystem status and succeeds with the wrong answer.
+  [[ "$("$PHP_BIN" -r 'printf("%o", fileperms($argv[1]) & 0777);' "$backup/database.dump")" == 600 ]] || { up_log "backup not 0600"; return 1; }
   # Review Focus 3: the relocated vendor/ loads the site's own classes, classmap and files.
   local loads; loads="$(cd "$SITE" && "$PHP_BIN" -r 'require "vendor/autoload.php"; echo (new App\Proof\Greeter())->hi(), class_exists("ProofLegacy") ? ":classmap" : ":missing", ":", update_proof_helper();')"
   [[ "$loads" == "hi:classmap:helped" ]] || { up_log "post-swap autoload: $loads"; return 1; }
@@ -184,9 +193,9 @@ sc_3() { # A kill between every pair of swap renames, and during the rollback it
 }
 
 slow_composer() { # a Composer wrapper: $1 = what happens after the real run
-  rm -f "$WORK/composer-done"
+  rm -f "$MARKS/composer-done"
   printf '#!/bin/sh\ncase " $* " in *" --version "*) exec %q "$@";; esac\n%q "$@"; code=$?\ntouch %q\n%s\nexit $code\n' \
-    "$COMPOSER_BINARY" "$COMPOSER_BINARY" "$WORK/composer-done" "$1" > "$WORK/bin/slow-composer"
+    "$COMPOSER_BINARY" "$COMPOSER_BINARY" "$MARKS/composer-done" "$1" > "$WORK/bin/slow-composer"
   chmod +x "$WORK/bin/slow-composer"
 }
 
@@ -194,7 +203,7 @@ sc_4() { # A killed runner whose Composer child keeps running: nothing claims it
   slow_composer 'sleep 20'
   up_repo_add target 901; request "$TARGET_V"
   (COMPOSER_BINARY="$WORK/bin/slow-composer" tick) & local bg=$!
-  for _ in $(seq 1 600); do [[ -f "$WORK/composer-done" ]] && break; sleep 0.2; done
+  for _ in $(seq 1 600); do [[ -f "$MARKS/composer-done" ]] && break; sleep 0.2; done
   kill -9 "$(op_field pid)"; wait "$bg" 2>/dev/null || true
   tick; tick; status_is running || { up_log "claimed while the child lived"; return 1; }
   for _ in $(seq 1 60); do pgrep -g "$(op_field pgid)" >/dev/null || break; sleep 1; done
@@ -205,7 +214,7 @@ sc_4b() { # Review Focus 2: runner and child dead, a grandchild alive: nothing c
   slow_composer '(sleep 20 </dev/null >/dev/null 2>&1 &)'
   up_repo_add target 901; request "$TARGET_V"
   (COMPOSER_BINARY="$WORK/bin/slow-composer" tick) & local bg=$!
-  for _ in $(seq 1 600); do [[ -f "$WORK/composer-done" ]] && break; sleep 0.2; done
+  for _ in $(seq 1 600); do [[ -f "$MARKS/composer-done" ]] && break; sleep 0.2; done
   sleep 0.5; kill -9 "$(op_field pid)"; wait "$bg" 2>/dev/null || true
   local pgid; pgid="$(op_field pgid)"
   pgrep -g "$pgid" >/dev/null || { up_log "no grandchild survived"; return 1; }
@@ -407,6 +416,10 @@ sc_20() { # Readiness at first enablement: a worker from before the guard, then 
   ! confirm_restart || { up_log "confirmed while pre-guard processes ran"; return 1; }
   for _ in $(seq 1 60); do [[ -n "$(worker_pid)" && "$(worker_pid)" != "$old" ]] && break; sleep 1; done
   [[ "$(worker_pid)" != "$old" ]] || { up_log "the worker did not cycle through the guard"; return 1; }
+  # It restarted within a second or two of the install, which whole-second start times cannot tell
+  # from before it: the scan lists it, and the owner restarts it once more.
+  sleep 2; local cycled; cycled="$(worker_pid)"; kill "$cycled" 2>/dev/null || true
+  for _ in $(seq 1 30); do [[ -n "$(worker_pid)" && "$(worker_pid)" != "$cycled" ]] && break; sleep 1; done
   fpm_restart
   confirm_restart || { cat "$WORK/confirm.log" >&2; return 1; }
   local idle; idle="$(worker_pid)"
@@ -586,7 +599,7 @@ sc_25() { # Enabling from scratch while PHP-FPM already runs as the web user: th
     [[ "$code" != 503 && "$code" != 500 ]] || { up_log "$p answered $code right after enabling"; return 1; }
   done
   [[ "$(stat -c '%a %U' "$SITE/.thallo-update")" == "700 $DEPLOY_USER" ]] || { up_log "private: $(stat -c '%a %U' "$SITE/.thallo-update")"; return 1; }
-  [[ "$(stat -c '%a %G' "$SITE/.thallo-update-control")" == "750 thallo-site" ]] || { up_log "control: $(stat -c '%a %G' "$SITE/.thallo-update-control")"; return 1; }
+  [[ "$(stat -c '%a %G' "$SITE/.thallo-update-control")" == "2750 thallo-site" ]] || { up_log "control: $(stat -c '%a %G' "$SITE/.thallo-update-control")"; return 1; }
   [[ "$(stat -c '%a' "$SITE/.thallo-update-control/admission.lock")" == 640 ]] || return 1
   tick
   [[ "$("$PHP_BIN" -r 'echo json_encode(json_decode(file_get_contents($argv[1]), true)["layout_problems"] ?? null);' \

@@ -42,6 +42,8 @@ up_init() {
   DEPLOY_USER="${UPDATE_PROOF_DEPLOY_USER:-thallo-deploy}"
   SITE="$WORK/site"; REPO="$WORK/repo"; ART="$WORK/artifacts"
   chmod 755 "$WORK"
+  # Markers the code owner's processes leave for the harness ($WORK is root's in CI).
+  MARKS="$WORK/marks"; mkdir -p "$MARKS"; chmod 1777 "$MARKS"
   up_log "update-proof: work in $WORK (FastCGI: $FASTCGI, single user: $SINGLE_USER)"
 }
 
@@ -122,7 +124,7 @@ up_build_site() {
 
 # Two users (CI): the code belongs to the deploy user and is only readable by the web user's group;
 # storage/ is writable by both (the group, setgid). The update folders keep provision's modes (spec
-# §16.1): private 0700, control 0750 with 0640 files, the inbox 2770. One user (local): nothing to do.
+# §16.1): private 0700, control 2750 (setgid) with 0640 files, the inbox 2770. One user (local): nothing to do.
 up_permissions() {
   [[ "$SINGLE_USER" == 1 ]] && return 0
   chown -R "$DEPLOY_USER:thallo-site" "$SITE"
@@ -130,7 +132,7 @@ up_permissions() {
   chmod -R g+rwX "$SITE/storage"
   find "$SITE/storage" -type d -exec chmod g+s {} +
   chmod -R go-rwx "$SITE/.thallo-update"
-  chmod 0750 "$SITE/.thallo-update-control"
+  chmod 2750 "$SITE/.thallo-update-control"
   find "$SITE/.thallo-update-control" -type f -exec chmod 0640 {} +
   chmod 2770 "$SITE/storage/framework/updates"
 }
@@ -179,11 +181,11 @@ up_web_start() {
 pid = $WORK/fpm.pid
 error_log = $WORK/fpm.log
 daemonize = no
+process_control_timeout = 120
 [proof]
 listen = 127.0.0.1:$FCGI_PORT
 pm = static
 pm.max_children = 4
-process_control_timeout = 120
 $( [[ "$SINGLE_USER" == 1 ]] || printf 'user = www-data\ngroup = thallo-site\n' )
 php_admin_value[opcache.enable] = 1
 php_admin_value[opcache.validate_timestamps] = 1
@@ -232,7 +234,22 @@ http {
 CONF
   "$NGINX_BIN" -p "$WORK/nginx" -c "$WORK/nginx/nginx.conf"
   # Ready when PHP itself answers: nginx alone would answer 502 before the FastCGI server is listening.
-  for _ in $(seq 1 150); do [[ "$(http_code "http://127.0.0.1:$PORT/_update")" == 200 ]] && return 0; sleep 0.2; done
+  # /_update is the guard's own page; with the guard removed (scenario 25), any answer from PHP on /.
+  local code
+  for _ in $(seq 1 150); do
+    if [[ -f "$SITE/bootstrap/update-guard.php" ]]; then
+      [[ "$(http_code "http://127.0.0.1:$PORT/_update")" == 200 ]] && return 0
+    else
+      code="$(http_code "http://127.0.0.1:$PORT/")"
+      [[ "$code" =~ ^[234] ]] && return 0
+    fi
+    sleep 0.2
+  done
+  local f
+  for f in "$WORK/fcgi.log" "$WORK/fpm.out" "$WORK/fpm.log" "$WORK/nginx/error.log"; do
+    [[ -s "$f" ]] && { up_log "== $f"; tail -20 "$f" >&2; }
+  done
+  up_log "== GET /_update"; curl -s -i "http://127.0.0.1:$PORT/_update" | head -20 >&2 || true
   up_die "the web server did not answer on $PORT"
 }
 
@@ -250,8 +267,9 @@ up_web_stop() {
 fpm_restart() {
   local pid; pid="$(cat "$WORK/fcgi.pid")"
   kill -QUIT "$pid" 2>/dev/null || true
+  # Graceful: the master waits for its workers' requests (process_control_timeout), then exits.
   for _ in $(seq 1 1500); do
-    pgrep -P "$pid" >/dev/null 2>&1 || ! kill -0 "$pid" 2>/dev/null && break
+    kill -0 "$pid" 2>/dev/null || break
     sleep 0.1
   done
   kill -0 "$pid" 2>/dev/null && up_die "the old FastCGI master $pid did not exit"
@@ -307,9 +325,11 @@ version_is() {
 web_version_is() {
   local secret got
   secret="$(tr -d '\n' < "$SITE/.thallo-update-control/verify.secret")"
-  got="$(curl -s -X POST -H "x-thallo-verify: $secret" -H 'Content-Type: application/json' -d '{"mode":"boot"}' \
-    "http://127.0.0.1:$PORT/_update/verify" | "$PHP_BIN" -r 'echo json_decode(stream_get_contents(STDIN),true)["version"] ?? "";')"
-  [[ "$got" == "$1" ]] || { up_log "PHP-FPM reports '$got', expected $1"; return 1; }
+  local body
+  body="$(curl -s -X POST -H "x-thallo-verify: $secret" -H 'Content-Type: application/json' -d '{"mode":"boot"}' \
+    "http://127.0.0.1:$PORT/_update/verify")"
+  got="$("$PHP_BIN" -r 'echo json_decode($argv[1],true)["version"] ?? "";' "$body")"
+  [[ "$got" == "$1" ]] || { up_log "PHP-FPM reports '$got', expected $1: ${body:0:500}"; return 1; }
 }
 
 http_code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }

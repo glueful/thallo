@@ -24,6 +24,9 @@ up_init
 trap up_cleanup EXIT
 up_artifacts
 up_build_site
+# Start the web server clearly after the guard was installed: start times are whole seconds, so the
+# runner counts anything started within 2 s of the install as possibly unguarded.
+sleep 2
 up_web_start
 owner_setup
 if ! confirm_restart; then
@@ -38,7 +41,7 @@ for n in "${SCENARIOS[@]}"; do
   declare -F "sc_$n" >/dev/null || up_die "no scenario $n"
   up_restore
   : > "$WORK/ticks.log"
-  rm -f "$WORK/composer-done" "$WORK/stop-loop" "$WORK/stop-worker" "$WORK/held" "$WORK/token"
+  rm -f "$MARKS/composer-done" "$WORK/stop-loop" "$WORK/stop-worker" "$WORK/held" "$WORK/token"
   if ( set -e; "sc_$n" ); then
     printf 'PASS %s\n' "$n"
   else
