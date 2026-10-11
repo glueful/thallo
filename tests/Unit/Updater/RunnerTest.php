@@ -51,6 +51,8 @@ final class RunnerTest extends TestCase
         $op = $this->ops->current();
         self::assertSame(Status::SUCCEEDED, $op['status'], (string) $op['error']);
         self::assertSame(Runner::STEPS, array_column($op['steps'], 'name'));
+        $allDone = array_fill(0, count(Runner::STEPS), 'done');
+        self::assertSame($allDone, array_column($op['steps'], 'status'), 'reopen too');
         self::assertSame('new', file_get_contents("{$this->base}/vendor/marker"));
         self::assertFileDoesNotExist($this->paths->closedFlag());
         self::assertNotNull($op['reopen_ready_at']);
