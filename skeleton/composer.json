@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": "^8.3",
-        "glueful/thallo-core": "^1.0.0-beta.101"
+        "glueful/thallo-core": "^1.0.0-beta.102"
     },
     "autoload": {
         "psr-4": {
