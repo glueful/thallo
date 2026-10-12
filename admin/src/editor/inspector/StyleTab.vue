@@ -95,6 +95,8 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   },
   // The block's marker — a feature's icon chip or number badge — beside the block's own Effects.
   { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
+  // A Navigation block's menu button: its icon's size, beside the button's colours and Effects.
+  { key: 'menu_button', label: 'Icon', match: (r) => r.group === 'menu_button' },
   // A tabs block's strip — the bar and the active tab's pill; the block's Effects are the panel's.
   { key: 'tabs', label: 'Tabs', match: (r) => r.group === 'tabs' },
   // A hero's aside — its padding and fill; the aside's corners and shadow are the block's Effects.
@@ -161,6 +163,7 @@ const LABELS: Record<string, string> = {
   'marker.background': 'Background',
   'marker.size': 'Size',
   'marker.padding': 'Padding',
+  'menu_button.size': 'Icon size',
   'feature.gap': 'Space after icon',
   'feature.align': 'Align icon',
   'hover.colors.text': 'Text colour',

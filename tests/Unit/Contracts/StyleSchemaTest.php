@@ -89,8 +89,11 @@ final class StyleSchemaTest extends TestCase
             'feature.align',
             // The room inside a Feature's marker (settings version 20).
             'marker.padding',
+            // Where an item sits in its row and which side of it takes the row's free space, and the
+            // size of a Navigation block's menu button (settings version 21).
+            'layout.order', 'layout.push', 'menu_button.size',
         ], $paths);
-        self::assertSame(20, StyleSchema::VERSION);
+        self::assertSame(21, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -214,16 +217,20 @@ final class StyleSchemaTest extends TestCase
             ['start', 'center', 'end', 'between', 'around', 'evenly'],
             StyleSchema::property('alignment.content')?->choices,
         );
-        // The item group is a capability entry: declaring it grants exactly its five paths.
+        // The item group is a capability entry: declaring it grants exactly its paths — settings
+        // version 21 adds the item's order and push.
         self::assertSame(
-            ['layout.span', 'layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self'],
+            [
+                'layout.span', 'layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self',
+                'layout.order', 'layout.push',
+            ],
             StyleSchema::pathsInGroup('layout.item'),
         );
         self::assertSame(
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(20, StyleSchema::VERSION);
+        self::assertSame(21, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -436,6 +443,36 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::property('marker.padding')?->tokenDomain,
         );
         self::assertTrue(StyleSchema::property('marker.padding')?->responsive);
+    }
+
+    public function testAnItemsOrderAndPushAreChoicesForEachScreenSize(): void
+    {
+        // An item moves to the front or the back of its row at one size and not another — a
+        // header's menu button before the logo on phones only — and the row's free space goes before
+        // it, after it, on both sides or neither.
+        $order = StyleSchema::property('layout.order');
+        $push = StyleSchema::property('layout.push');
+        self::assertNotNull($order);
+        self::assertNotNull($push);
+        self::assertSame(['first', 'default', 'last'], $order->choices);
+        self::assertSame(['none', 'before', 'after', 'both'], $push->choices);
+        foreach ([$order, $push] as $def) {
+            self::assertSame('layout.item', $def->group);
+            self::assertTrue($def->responsive);
+            self::assertTrue($def->accepts(ValueKind::Choice));
+            self::assertTrue($def->accepts(ValueKind::Reset));
+        }
+    }
+
+    public function testAMenuButtonsSizeIsOneChoiceForEveryWidth(): void
+    {
+        // The button only shows on phones, so one size serves every width.
+        $size = StyleSchema::property('menu_button.size');
+        self::assertNotNull($size);
+        self::assertSame('menu_button', $size->group);
+        self::assertSame(['sm', 'md', 'lg'], $size->choices);
+        self::assertFalse($size->responsive);
+        self::assertSame(['menu_button.size'], StyleSchema::pathsInGroup('menu_button'));
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void

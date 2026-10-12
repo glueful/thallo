@@ -213,6 +213,11 @@ const PROPERTIES: PropertyDefinition[] = [
   choice('feature.align', 'feature', true, ['start', 'center', 'end']),
   // Settings version 20: the room inside a Feature's marker, all four sides.
   token('marker.padding', 'marker', true, 'spacing'),
+  // Settings version 21: where an item sits in its row, per screen size, and which side of it takes
+  // the row's free space; and a Navigation block's menu button icon size, one for every width.
+  choice('layout.order', 'layout.item', true, ['first', 'default', 'last']),
+  choice('layout.push', 'layout.item', true, ['none', 'before', 'after', 'both']),
+  choice('menu_button.size', 'menu_button', false, ['sm', 'md', 'lg']),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))

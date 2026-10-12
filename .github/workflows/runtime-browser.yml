@@ -20,6 +20,7 @@ on:
       - 'scripts/build-hover-fixtures'
       - 'scripts/build-palette-fixtures'
       - 'scripts/build-product-grid-fixtures'
+      - 'scripts/build-header-layout-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -61,6 +62,7 @@ on:
       - 'scripts/build-hover-fixtures'
       - 'scripts/build-palette-fixtures'
       - 'scripts/build-product-grid-fixtures'
+      - 'scripts/build-header-layout-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -252,6 +254,12 @@ jobs:
       - name: Build the Product grid fixtures
         working-directory: .
         run: php scripts/build-product-grid-fixtures
+
+      # The header on a phone as a browser lays it out (header-layout.spec.js): Order, Push, the Menu
+      # button section and the open menu's panel, under five saved headers, then rolled back.
+      - name: Build the header layout fixtures
+        working-directory: .
+        run: php scripts/build-header-layout-fixtures
 
       - uses: actions/setup-node@v6
         with:

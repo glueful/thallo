@@ -15,7 +15,8 @@ use Thallo\Render\TwigFactory;
  * The Navigation block's Style tab: Typography on the whole menu, the gap between its items, and
  * sections for every menu item (with its hover look), the current page's item — the pill — the
  * submenu panel and the submenu's items. The current page's section wins over the item's, at rest
- * and under the pointer.
+ * and under the pointer. The menu button — the phone's hamburger — is a section of its own: its icon's
+ * colour and size, its background, border and corners (settings version 21).
  */
 final class NavigationStyleTest extends AppTestCase
 {
@@ -168,5 +169,27 @@ final class NavigationStyleTest extends AppTestCase
         self::assertStringContainsString('t-fg-white', $women);
         self::assertStringNotContainsString('t-fg-muted', $women);
         self::assertStringNotContainsString('t-hover-fg-accent', $women);
+    }
+
+    public function testTheMenuButtonSectionStylesTheHamburger(): void
+    {
+        $html = $this->render(['parts' => ['menu_button' => [
+            'colors' => ['text' => self::token('color.accent'), 'surface' => self::token('color.surface')],
+            'border' => ['width' => ['type' => 'choice', 'value' => 'none']],
+            'radius' => self::token('radius.full'),
+            'menu_button' => ['size' => ['type' => 'choice', 'value' => 'lg']],
+        ]]]);
+        self::assertSame(1, preg_match('~<summary class="(thallo-block-navigation__hamburger[^"]*)"~', $html, $m));
+        foreach (['t-fg-accent', 't-bg-surface', 't-bw-none', 't-radius-full', 't-mbsize-lg'] as $class) {
+            self::assertStringContainsString(' ' . $class, $m[1]);
+        }
+        // Nothing of it reaches the links.
+        $about = self::classesOf($html, 'thallo-block-navigation__link', 'About');
+        self::assertStringNotContainsString('t-mbsize-lg', $about);
+    }
+
+    public function testAnUnstyledMenuButtonIsTheThemes(): void
+    {
+        self::assertStringContainsString('<summary class="thallo-block-navigation__hamburger">', $this->render([]));
     }
 }

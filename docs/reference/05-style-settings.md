@@ -410,6 +410,18 @@ Transform. The Style tab shows it only while the marker is a number. Its size is
 A part declares this with `when` (`{"field": "marker", "equals": "number"}`): the section is shown
 only while that content field has that value.
 
+### Menu button
+
+A Navigation block's **Menu button** section styles the button a phone shows: Text colour (the
+icon), Background, Border colour, the border, Corners, and its icon size (settings version 21).
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Icon size | `menu_button.size` | no | `t-mbsize-{sm,md,lg}` | `--thallo-menu-icon:` `sm` 1rem, `md` 1.375rem, `lg` 1.75rem |
+
+The default theme draws the icon at 1.125rem until a size is set; the bars and the gaps between them
+grow with it. The button stays at least 44px square.
+
 ### Tabs
 
 The Tabs block's strip, beside the panels area, which the block's own Corners setting governs.
@@ -599,8 +611,8 @@ Social links blocks.
 
 ### As an item
 
-These resolve against the parent's mode at the same breakpoint, so a grid parent offers Span and
-Align self, and a flex parent offers Basis, Grow, Shrink and Align self.
+These resolve against the parent's mode at the same breakpoint, so a grid parent offers Span,
+Align self and Order, and a flex parent offers Basis, Grow, Shrink, Align self, Order and Push.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
@@ -609,6 +621,15 @@ Align self, and a flex parent offers Basis, Grow, Shrink and Align self.
 | Grow | `layout.grow` | yes | `t-grow-{0,1}` | `flex-grow: 0` / `1` |
 | Shrink | `layout.shrink` | yes | `t-shrink-{0,1}` | `flex-shrink: 0` / `1` |
 | Align self | `layout.align_self` | yes | `t-aself-{value}` | `align-self:` `start` flex-start, `center`, `end` flex-end, `stretch` |
+| Order | `layout.order` | yes | `t-order-{value}` | `order:` `first` -1, `default` 0, `last` 1 |
+| Push | `layout.push` | yes | `t-push-{value}` | `margin-inline:` `none` 0, `before` auto 0, `after` 0 auto, `both` auto |
+
+Order and Push came with settings version 21. Order moves an item to the front or the back of its
+row at one size and not another: a header's menu button before the logo on phones, back in place on
+wider screens. Push gives the row's free space to one side of the item or both, which moves it and
+everything after it. It writes the property **Placement** (`alignment.self`) writes, and is emitted
+after it, so on a block with both the push wins. **None** also takes away the theme's own push: in
+the default theme the free space of a phone's header row goes after the logo.
 
 Span never has a rule of its own. The compiler writes one rule for every pairing of a track
 count with a span, at each breakpoint, so exactly one rule matches and the later one wins:

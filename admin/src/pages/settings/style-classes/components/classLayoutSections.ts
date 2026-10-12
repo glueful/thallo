@@ -53,9 +53,9 @@ export const CLASS_LAYOUT_SECTIONS: readonly ClassLayoutSection[] = [
       {
         family: 'flex-parent',
         label: 'Applies in a Flex parent',
-        paths: ['layout.basis', 'layout.grow', 'layout.shrink'],
+        paths: ['layout.basis', 'layout.grow', 'layout.shrink', 'layout.push'],
       },
-      { paths: ['layout.align_self'] },
+      { paths: ['layout.align_self', 'layout.order'] },
     ],
   },
 ]

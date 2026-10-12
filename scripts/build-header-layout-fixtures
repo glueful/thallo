@@ -1,0 +1,160 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the header layout fixtures (header-layout.spec.js): one published page rendered under five
+ * saved headers into `tools/runtime-browser/fixtures/header-layout/` (gitignored), stylesheets
+ * inlined and scripts dropped. Seeded inside a transaction that is rolled back.
+ *
+ * Headers: `default.html` — a logo, a Navigation block and a button, nothing set; `first.html` — the
+ * Navigation block first on phones and back in place from md; `pair.html` — a logo and a Navigation
+ * block alone, the menu first; `centre.html` — the menu first and the logo pushed from both sides;
+ * `styled.html` — a black header whose menu button is large, accent, filled, borderless and round.
+ *
+ *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-header-layout-fixtures
+ */
+
+declare(strict_types=1);
+
+use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Cache\CacheStore;
+use Glueful\Database\Connection;
+use Glueful\Helpers\Utils;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Regions\RegionValidator;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Tests\Support\ListingPageSeed;
+use Thallo\Core\Tests\Support\TestApplication;
+use Thallo\Navigation\MenuRepository;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/layout-thumbnails.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/header-layout';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$app = TestApplication::instance();
+$container = $app->getContainer();
+$context = $container->get(ApplicationContext::class);
+$db = $container->get(Connection::class);
+
+/** The page as a self-contained document: stylesheets and fonts inlined, scripts dropped. */
+$selfContained = static fn (string $html): string => layout_self_contained(
+    $html,
+    static fn (Request $request): Response => $app->handle($request),
+    [],
+    $root,
+);
+
+/** Thrown to roll the seeding back once the pages are written. */
+final class HeaderLayoutFixturesWritten extends RuntimeException
+{
+}
+
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+
+$choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
+$token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
+$logo = static fn (array $style = []): array => ['id' => 'hdrlayoutlgo', 'type' => 'logo',
+    'data' => ['size' => 'medium', 'link_home' => true], 'settings' => $style === [] ? [] : ['style' => $style]];
+$nav = static fn (array $settings = []): array => ['id' => 'hdrlayoutnav', 'type' => 'navigation',
+    'data' => ['menu' => 'header-layout'], 'settings' => $settings];
+$button = ['id' => 'hdrlayoutbtn', 'type' => 'button', 'data' => ['label' => 'Cart', 'url' => '/cart'], 'settings' => []];
+$first = ['style' => ['layout' => ['order' => ['base' => $choice('first'), 'md' => $choice('default')]]]];
+
+$headers = [
+    'default' => [[$logo(), $nav(), $button], []],
+    'first' => [[$logo(), $nav($first), $button], []],
+    'pair' => [[$logo(), $nav($first)], []],
+    'centre' => [[
+        $logo(['layout' => ['push' => ['base' => $choice('both'), 'md' => $choice('none')]]]),
+        $nav($first),
+        $button,
+    ], []],
+    'styled' => [[$logo(), $nav($first + ['parts' => ['menu_button' => [
+        'colors' => ['text' => $token('color.accent'), 'surface' => $token('color.white')],
+        'border' => ['width' => $choice('none')],
+        'radius' => $token('radius.full'),
+        'menu_button' => ['size' => $choice('lg')],
+    ]]]), $button], ['style' => ['colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')]]]],
+];
+
+try {
+    $db->transaction(static function () use ($container, $context, $db, $app, $selfContained, $out, $headers): void {
+        // Items go in through the connection: the repository's tree write opens a transaction of its own.
+        $menu = $container->get(MenuRepository::class)->createMenu('header-layout', 'Header layout');
+        $now = gmdate('Y-m-d H:i:s');
+        foreach (['Home', 'Shop', 'About'] as $i => $label) {
+            $db->table('navigation_items')->insert([
+                'uuid' => Utils::generateNanoID(), 'menu_uuid' => $menu['uuid'], 'parent_uuid' => null,
+                'position' => $i, 'kind' => 'url', 'entry_uuid' => null, 'url' => '/' . strtolower($label),
+                'icon' => null, 'new_tab' => false, 'labels' => json_encode(['en' => $label], JSON_THROW_ON_ERROR),
+                'descriptions' => null, 'created_at' => $now, 'updated_at' => $now,
+            ]);
+        }
+        $type = (string) $container->get(ContentTypeRepository::class)->create([
+            'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        (new ListingPageSeed($container, $context))->publish($type, 'page', ['title' => 'Page', 'body' => [
+            ['id' => 'hdrlayoutbdy', 'type' => 'rich_text', 'data' => ['content' => '<p>The page under the header.</p>'],
+                'settings' => []],
+        ]], '2026-07-01 09:00:00');
+
+        $validator = $container->get(RegionValidator::class);
+        $regions = $container->get(RegionRepository::class);
+        foreach ($headers as $name => [$blocks, $settings]) {
+            $clean = $validator->validate('header', $blocks, $settings);
+            $regions->save('header', $clean['blocks'], $clean['settings'] ?? $settings, null);
+            // A saved region purges rendered pages through the editor's flow, not the repository's.
+            $container->get(CacheStore::class)->deletePattern('render:*');
+            $response = $app->handle(Request::create('/landing/page?proof=' . $name, 'GET'));
+            if ($response->getStatusCode() !== 200) {
+                throw new RuntimeException("/landing/page answered {$response->getStatusCode()} for {$name}");
+            }
+            $html = (string) $response->getContent();
+            // Each page must carry its own header, not a cached one.
+            $marker = ['default' => 'thallo-block-navigation', 'first' => 't-order-first', 'pair' => 't-order-first',
+                'centre' => 't-push-both', 'styled' => 't-mbsize-lg'][$name];
+            if (!str_contains($html, $marker) || ($name === 'default' && str_contains($html, 't-order-first'))) {
+                throw new RuntimeException("the {$name} page does not carry its header");
+            }
+            file_put_contents($out . "/{$name}.html", $selfContained($html));
+        }
+
+        throw new HeaderLayoutFixturesWritten();
+    });
+} catch (HeaderLayoutFixturesWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    fwrite(STDERR, 'the header layout fixtures failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
+fwrite(STDOUT, "Wrote default.html, first.html, pair.html, centre.html, styled.html to tools/runtime-browser/fixtures/header-layout.\n");

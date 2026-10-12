@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 20;
+    public const VERSION = 21;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -306,6 +306,21 @@ final class StyleSchema
         // Settings version 20: the room inside a Feature's marker, one value for all four sides of
         // the icon chip or number badge (the `spacing` scale, like the gap beside it).
         $byPath['marker.padding'] = new PropertyDefinition('marker.padding', 'marker', $token, true, 'spacing');
+        // Settings version 21: where an item sits in its row — moved to the front or the back at one
+        // size and not another, a header's menu button before the logo on phones — and which side of
+        // it the row's free space goes to, pushing it and what follows it to the far end.
+        $choice = [ValueKind::Choice, ValueKind::Reset];
+        $byPath['layout.order'] = new PropertyDefinition('layout.order', 'layout.item', $choice, true, null, [
+            'first', 'default', 'last',
+        ]);
+        $byPath['layout.push'] = new PropertyDefinition('layout.push', 'layout.item', $choice, true, null, [
+            'none', 'before', 'after', 'both',
+        ]);
+        // A Navigation block's menu button: the size of its icon. The button only shows on phones, so
+        // one value serves every width.
+        $byPath['menu_button.size'] = new PropertyDefinition('menu_button.size', 'menu_button', $choice, false, null, [
+            'sm', 'md', 'lg',
+        ]);
         return self::$properties = $byPath;
     }
 
