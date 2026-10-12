@@ -451,6 +451,12 @@ jobs:
           sudo apt-get install -y -qq nginx postgresql-client lsof
           command -v php-fpm8.4 || sudo apt-get install -y -qq php8.4-fpm
           sudo systemctl stop nginx || true
+          # The runner image starts its own PHP-FPM services (8.3, 8.4, …). On one host the update treats
+          # every web server as able to run the site, so the proof refuses while any runs: stop them all.
+          for unit in $(systemctl list-units --type=service --all --plain --no-legend 'php*-fpm*' | awk '{print $1}'); do
+            sudo systemctl stop "$unit" || true
+          done
+          ! pgrep -a php-fpm || { echo "a system PHP-FPM is still running"; exit 1; }
           sudo groupadd -f thallo-site
           id thallo-deploy >/dev/null 2>&1 || sudo useradd --system --create-home thallo-deploy
           sudo usermod -aG thallo-site thallo-deploy
