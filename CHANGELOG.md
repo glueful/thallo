@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.102] - 2026-10-12 — Developer Preview
+
+Update Thallo from the admin: on a single server an owner can press Update, and a separate runner
+installs the release behind a verified backup and puts the old code back if it fails early. Also a
+menu change that reaches the shop's pages, and editor sidebar tabs that show their whole labels.
 
 ### Added
 - **Update Thallo from the admin** (off unless you turn it on): on a single server, an owner presses
