@@ -368,8 +368,104 @@ jobs:
       - name: Install the dev root (reset-test-db needs its vendor)
         run: composer install --no-interaction --prefer-dist
 
+      - name: Updater files current
+        # bin/thallo-updater and bootstrap/update-guard.php are generated from core/src/Updater.
+        run: php scripts/build-updater --check
+
       - name: Skeleton smoke
         # error_log to stderr: boot warnings the smoke's PHP processes would otherwise hide.
         env:
           PHP: php -d error_log=/dev/stderr
         run: timeout --signal=KILL 900 composer test:skeleton
+
+  # The disposable-install proof: the release gate for updating from the admin (docs/internal/RELEASING.md).
+  # Two users, as on a real server: the update runner as thallo-deploy (owns the code), PHP-FPM as
+  # www-data (reads the code, writes storage/), both in the thallo-site group.
+  update-proof:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    name: update-proof
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Create the dev .env the proof reads credentials from
+        run: |
+          cat > .env <<'EOF2'
+          APP_ENV=testing
+          DB_DRIVER=pgsql
+          DB_PGSQL_HOST=127.0.0.1
+          DB_PGSQL_PORT=5432
+          DB_PGSQL_DATABASE=app_test
+          DB_PGSQL_USERNAME=postgres
+          DB_PGSQL_PASSWORD=postgres
+          DB_POOLING_ENABLED=false
+          EOF2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, posix, pcntl, zip
+          tools: composer
+          coverage: none
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: admin/pnpm-lock.yaml
+
+      - name: Build the admin bundle into core/resources/admin
+        run: cd admin && pnpm install --frozen-lockfile && pnpm run -s build
+
+      - name: Install the dev root
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Web server, PHP-FPM, Postgres client and the two users
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nginx postgresql-client lsof
+          command -v php-fpm8.4 || sudo apt-get install -y -qq php8.4-fpm
+          sudo systemctl stop nginx || true
+          # The runner image starts its own PHP-FPM services (8.3, 8.4, …). On one host the update treats
+          # every web server as able to run the site, so the proof refuses while any runs: stop them all.
+          for unit in $(systemctl list-units --type=service --all --plain --no-legend 'php*-fpm*' | awk '{print $1}'); do
+            sudo systemctl stop "$unit" || true
+          done
+          ! pgrep -a php-fpm || { echo "a system PHP-FPM is still running"; exit 1; }
+          sudo groupadd -f thallo-site
+          id thallo-deploy >/dev/null 2>&1 || sudo useradd --system --create-home thallo-deploy
+          sudo usermod -aG thallo-site thallo-deploy
+          sudo usermod -aG thallo-site www-data
+
+      - name: Update proof
+        run: |
+          sudo -E env "PATH=$PATH" \
+            UPDATE_PROOF_SINGLE_USER=0 COMPOSER_ALLOW_SUPERUSER=1 PHP_BIN_SET=1 PHP_BIN="$(command -v php)" \
+            PHP_FPM_BIN="$(command -v php-fpm8.4)" NGINX_BIN="$(command -v nginx)" \
+            COMPOSER_PHAR="$(command -v composer)" \
+            timeout --signal=KILL 2100 bash scripts/update-proof

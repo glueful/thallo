@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+// A stub console for RunnerRealHostTest. It answers the runner's child commands the way FakeHost
+// scripts them, and records, for every invocation, the inodes of the descriptors it inherited from 3
+// up, so the test can see which locks reached the child.
+
+$base = __DIR__;
+$args = array_slice($argv, 1);
+$command = $args[0] ?? '';
+$inodes = [];
+for ($fd = 3; $fd < 12; $fd++) {
+    // stat, never fopen('php://fd/N'): that dup()s the descriptor, and macOS kills a process that
+    // dup()s a guarded descriptor its environment holds open.
+    $st = @stat('/dev/fd/' . $fd);
+    if ($st !== false) {
+        $inodes[] = $st['ino'];
+    }
+}
+file_put_contents($base . '/storage/fds.log', $command . ' ' . implode(',', $inodes) . "\n", FILE_APPEND);
+$versions = json_decode((string) file_get_contents($base . '/storage/versions.json'), true);
+$marker = trim((string) @file_get_contents($base . '/vendor/marker'));
+$installed = $marker === 'new' ? $versions['target'] : $versions['from'];
+$exitFrom = static fn (string $name): int
+    => (int) trim((string) (@file_get_contents($base . '/storage/' . $name) ?: '0'));
+
+switch ($command) {
+    case 'thallo:update:verify':
+        $code = $exitFrom('verify-exit');
+        if ($code === 0) {
+            echo json_encode(['version' => $installed]), "\n";
+        }
+        exit($code);
+    case 'thallo:update:backup':
+        foreach ($args as $a) {
+            if (str_starts_with($a, '--to=')) {
+                @mkdir(substr($a, 5), 0700, true);
+                file_put_contents(substr($a, 5) . '/manifest.json', '{"bytes":1}');
+            }
+        }
+        echo in_array('--estimate', $args, true) ? '{"database_bytes":1}' : '{"bytes":1}', "\n";
+        exit(0);
+    case 'thallo:update:clear-caches':
+        exit($exitFrom('clear-exit'));
+    default: // thallo:provision, queue:restart
+        exit(0);
+}

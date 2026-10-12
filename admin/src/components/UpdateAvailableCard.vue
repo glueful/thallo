@@ -1,8 +1,28 @@
 <script setup lang="ts">
-import { UPGRADE_COMMAND, type UpdateStatus } from '@/queries/updates'
+// The update notice. Everyone who sees it gets the terminal command. The owner (system.config), on
+// an install that turned updating from the admin on, also gets an Update button when preflight is
+// ready — or one sentence per reason it is not. A null preflight (403, or not asked) or one that is
+// simply `disabled` leaves the card as it always was.
+import { computed, ref } from 'vue'
+import UpdateConfirmModal from '@/components/UpdateConfirmModal.vue'
+import {
+  REASON_TEXT,
+  UPGRADE_COMMAND,
+  type UpdatePreflight,
+  type UpdateStatus,
+} from '@/queries/updates'
 
-defineProps<{ status: UpdateStatus }>()
+const props = defineProps<{ status: UpdateStatus; preflight?: UpdatePreflight | null }>()
 const emit = defineEmits<{ dismiss: [] }>()
+
+const confirming = ref(false)
+const offered = computed(
+  () => props.preflight != null && !props.preflight.reasons.includes('disabled'),
+)
+const ready = computed(() => offered.value && props.preflight?.ready === true)
+const reasons = computed(() =>
+  offered.value && !ready.value ? (props.preflight?.reasons ?? []) : [],
+)
 </script>
 
 <template>
@@ -29,9 +49,22 @@ const emit = defineEmits<{ dismiss: [] }>()
         <pre
           class="overflow-x-auto rounded-md bg-elevated px-3 py-2 text-xs text-default"
         ><code data-testid="update-available-command">{{ UPGRADE_COMMAND }}</code></pre>
+        <UButton
+          v-if="ready"
+          :label="`Update to ${preflight?.target}`"
+          icon="i-lucide-download"
+          data-testid="update-available-start"
+          @click="confirming = true"
+        />
+        <div v-if="reasons.length > 0" class="text-sm" data-testid="update-available-reasons">
+          <p class="text-muted">Updating from here is unavailable:</p>
+          <ul class="mt-1 list-disc space-y-1 pl-5 text-default">
+            <li v-for="reason in reasons" :key="reason">{{ REASON_TEXT[reason] ?? reason }}</li>
+          </ul>
+        </div>
         <p class="text-xs text-muted">
-          Reload PHP-FPM only if OPcache has timestamp validation off. Composer runs on the server,
-          never from this page.
+          Reload PHP-FPM only if OPcache has timestamp validation off. The update runs on the server
+          as the code owner, never in this browser.
         </p>
       </div>
       <UButton
@@ -43,5 +76,12 @@ const emit = defineEmits<{ dismiss: [] }>()
         @click="emit('dismiss')"
       />
     </div>
+    <UpdateConfirmModal
+      v-if="ready"
+      v-model:open="confirming"
+      :current="preflight?.current ?? status.current"
+      :target="preflight?.target ?? status.latest"
+      :notes-url="status.notesUrl"
+    />
   </UCard>
 </template>

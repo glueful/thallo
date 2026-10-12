@@ -101,6 +101,7 @@ use Thallo\Commerce\Shop\ShopAssetMap;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnAppearanceChange;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnCatalogChange;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnLinkChange;
+use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnMenuUpdate;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnRegionUpdate;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnSlugChange;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnThemeChange;
@@ -123,6 +124,7 @@ use Thallo\Contracts\Capability\ActivationCopy;
 use Thallo\Contracts\Capability\DeclaresCapabilities;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Content\RegionUpdated;
+use Thallo\Contracts\Navigation\MenuUpdated;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\StorefrontLinkResolver;
 use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
@@ -640,6 +642,10 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'factory' => [self::class, 'makePurgeShopCacheOnRegionUpdate'],
                 'shared'  => true,
             ],
+            PurgeShopCacheOnMenuUpdate::class => [
+                'factory' => [self::class, 'makePurgeShopCacheOnMenuUpdate'],
+                'shared'  => true,
+            ],
             PurgeShopCacheOnThemeChange::class => [
                 'factory' => [self::class, 'makePurgeShopCacheOnThemeChange'],
                 'shared'  => true,
@@ -1069,6 +1075,11 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         ContainerInterface $container,
     ): PurgeShopCacheOnRegionUpdate {
         return new PurgeShopCacheOnRegionUpdate($container);
+    }
+
+    public static function makePurgeShopCacheOnMenuUpdate(ContainerInterface $container): PurgeShopCacheOnMenuUpdate
+    {
+        return new PurgeShopCacheOnMenuUpdate($container);
     }
 
     public static function makePurgeShopCacheOnThemeChange(
@@ -1624,6 +1635,11 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         $events->addListener(RegionUpdated::class, [
             app($context, PurgeShopCacheOnRegionUpdate::class),
             'onRegionUpdated',
+        ]);
+        // A menu renders in that chrome: a menu edit must reach the shop's pages likewise.
+        $events->addListener(MenuUpdated::class, [
+            app($context, PurgeShopCacheOnMenuUpdate::class),
+            'onMenuUpdated',
         ]);
         $events->addListener(ThemeChanged::class, [
             app($context, PurgeShopCacheOnThemeChange::class),

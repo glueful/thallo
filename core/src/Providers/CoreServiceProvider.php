@@ -6,7 +6,13 @@ namespace Thallo\Core\Providers;
 
 use Thallo\Core\Capabilities\CapabilityStateStore;
 use Thallo\Contracts\Settings\SystemChannel;
+use Thallo\Core\Updates\Console\UpdateBackupCommand;
+use Thallo\Core\Updates\UpdatePreflight;
+use Thallo\Core\Updater\Paths as UpdaterPaths;
+use Thallo\Core\Http\Controllers\AdminUpdateController;
 use Thallo\Core\Updates\Console\UpdateCheckCommand;
+use Thallo\Core\Updates\Console\UpdateClearCachesCommand;
+use Thallo\Core\Updates\Console\UpdateVerifyCommand;
 use Thallo\Core\Updates\PackagistReleaseFeed;
 use Thallo\Core\Updates\ReleaseFeed;
 use Thallo\Core\Updates\UpdateChecker;
@@ -548,6 +554,25 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             $container->get(ReleaseFeed::class),
             $container->get(SystemChannel::class),
         );
+    }
+
+    /** Updating from the admin: the preflight PHP-FPM answers (spec §4). */
+    public static function makeUpdatePreflight(ContainerInterface $container): UpdatePreflight
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new UpdatePreflight(
+            (array) config($context, 'thallo.admin_updates', []),
+            $container->get(UpdateChecker::class)->status()->toArray(),
+            $context->getBasePath(),
+            static fn (string $key): string => (string) ini_get($key),
+            static fn (): string => PHP_SAPI,
+            static fn (): int => time(),
+        );
+    }
+
+    public static function makeUpdaterPaths(ContainerInterface $container): UpdaterPaths
+    {
+        return new UpdaterPaths($container->get(ApplicationContext::class)->getBasePath());
     }
 
     public static function makeSignupChallenge(ContainerInterface $container): SignupChallenge
@@ -2915,6 +2940,19 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
                 'shared' => true,
                 'autowire' => true,
             ],
+            AdminUpdateController::class => [
+                'class' => AdminUpdateController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            UpdatePreflight::class => [
+                'factory' => [self::class, 'makeUpdatePreflight'],
+                'shared' => false,
+            ],
+            UpdaterPaths::class => [
+                'factory' => [self::class, 'makeUpdaterPaths'],
+                'shared' => true,
+            ],
             CapabilityAdminController::class => [
                 'class' => CapabilityAdminController::class,
                 'shared' => true,
@@ -3072,6 +3110,21 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             ],
             UpdateCheckCommand::class => [
                 'class' => UpdateCheckCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            UpdateVerifyCommand::class => [
+                'class' => UpdateVerifyCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            UpdateBackupCommand::class => [
+                'class' => UpdateBackupCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            UpdateClearCachesCommand::class => [
+                'class' => UpdateClearCachesCommand::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -3621,6 +3674,9 @@ final class CoreServiceProvider extends ServiceProvider implements \Thallo\Contr
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
             UpdateCheckCommand::class,
+            UpdateVerifyCommand::class,
+            UpdateBackupCommand::class,
+            UpdateClearCachesCommand::class,
             SuperuserGrantCommand::class,
             SuperuserTransferCommand::class,
             MigratePlatformPaymentCredentialsCommand::class,

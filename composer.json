@@ -77,7 +77,7 @@
   ],
   "require": {
     "php": "^8.3",
-    "glueful/framework": "^1.88.5",
+    "glueful/framework": "^1.90.0",
     "glueful/thallo-core": "*"
   },
   "require-dev": {
@@ -113,6 +113,7 @@
     ],
     "test:distribution": "bash scripts/distribution-smoke",
     "test:skeleton": "bash scripts/skeleton-smoke",
+    "test:update-proof": "bash scripts/update-proof",
     "test:unit": "vendor/bin/phpunit --testsuite Unit",
     "test:integration": "vendor/bin/phpunit --testsuite Integration",
     "phpcs": "vendor/bin/phpcs",

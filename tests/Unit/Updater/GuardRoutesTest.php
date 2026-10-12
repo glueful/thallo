@@ -1,0 +1,123 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Thallo\Core\Tests\Unit\Updater;
+
+use PHPUnit\Framework\TestCase;
+use Thallo\Core\Updater\Barrier;
+use Thallo\Core\Updater\Guard;
+use Thallo\Core\Updater\OperationStore;
+use Thallo\Core\Updater\Paths;
+use Thallo\Core\Updater\Status;
+
+final class GuardRoutesTest extends TestCase
+{
+    private string $base;
+    private Paths $paths;
+    private OperationStore $ops;
+    private string $token;
+
+    protected function setUp(): void
+    {
+        $this->base = sys_get_temp_dir() . '/thallo-routes-' . bin2hex(random_bytes(4));
+        mkdir($this->base . '/storage/framework/updates', 0777, true);
+        mkdir($this->base . '/storage/logs', 0777, true);
+        mkdir($this->base . '/.thallo-update-control', 0750);
+        touch($this->base . '/.thallo-update-control/admission.lock');
+        $this->paths = new Paths($this->base);
+        $this->ops = new OperationStore($this->paths, static fn (): int => 1);
+        $this->token = bin2hex(random_bytes(32));
+        $op = $this->ops->start('2', '1', 'u', hash('sha256', $this->token));
+        $lines = array_map(static fn ($i) => "line {$i}", range(1, 300));
+        mkdir(dirname($this->paths->log($op['id'])), 0700, true);
+        file_put_contents($this->paths->log($op['id']), implode("\n", $lines));
+        $this->ops->publish(); // the runner publishes what /_update may show
+    }
+
+    protected function tearDown(): void
+    {
+        exec('rm -rf ' . escapeshellarg($this->base));
+    }
+
+    public function testThePageLoadsWithoutAToken(): void
+    {
+        $r = $this->guard()->web('GET', '/_update', [], '');
+        self::assertSame(200, $r->status);
+        self::assertStringContainsString('sessionStorage', $r->body);
+        self::assertStringNotContainsString('<script src=', $r->body, 'self-contained: nothing loaded from elsewhere');
+        // The restore goes into an empty schema: pg_restore --clean drops only what the dump holds,
+        // so a table the failed update created would survive it.
+        self::assertStringContainsString('DROP SCHEMA public CASCADE', $r->body);
+        self::assertStringNotContainsString('pg_restore --clean', $r->body);
+    }
+
+    public function testStatusNeedsTheTokenAndHidesSecrets(): void
+    {
+        self::assertSame(403, $this->guard()->web('GET', '/_update/status', [], '')->status);
+        $wrong = ['x-thallo-update-token' => 'nope'];
+        self::assertSame(403, $this->guard()->web('GET', '/_update/status', $wrong, '')->status);
+        $r = $this->guard()->web('GET', '/_update/status', ['x-thallo-update-token' => $this->token], '');
+        self::assertSame(200, $r->status);
+        $data = json_decode($r->body, true);
+        self::assertSame('requested', $data['operation']['status']);
+        self::assertArrayNotHasKey('token_hash', $data['operation']);
+        self::assertArrayNotHasKey('owner', $data['operation']);
+        self::assertSame(200, substr_count($data['log'], "\n") + 1, 'the last 200 log lines');
+        self::assertStringEndsWith('line 300', $data['log']);
+    }
+
+    public function testStatusWorksWhileTheSiteIsClosedAndTheBarrierHeld(): void
+    {
+        $barrier = new Barrier($this->paths);
+        $barrier->close();
+        $held = $barrier->acquire(0, static fn (): int => 0, static function (): void {
+        });
+        self::assertNotNull($held);
+        $r = $this->guard()->web('GET', '/_update/status', ['x-thallo-update-token' => $this->token], '');
+        self::assertSame(200, $r->status);
+    }
+
+    public function testRecoveryRequests(): void
+    {
+        $h = ['x-thallo-update-token' => $this->token];
+        self::assertSame(409, $this->recover($h, '{"option":"rollback"}'), 'not in recovery');
+        $run = $this->ops->claim($this->ops->current()['id'], 1, 1);
+        $this->ops->finish($run['id'], $run['owner'], Status::RECOVERY_REQUIRED, 'x');
+        self::assertSame(422, $this->recover($h, '{"option":"reopen"}'), 'reopen needs the typed confirmation');
+        $notOffered = $this->recover($h, '{"option":"rollback"}');
+        self::assertSame(409, $notOffered, 'only the published choices: nothing to roll back');
+        self::assertSame(202, $this->recover($h, '{"option":"reopen","confirm":"REOPEN"}'));
+        // A request in the inbox, never a write to what the runner trusts.
+        $filed = json_decode((string) file_get_contents($this->paths->recoverRequest()), true);
+        self::assertSame(['option' => 'reopen', 'token' => $this->token], $filed);
+        self::assertSame(0660, fileperms($this->paths->recoverRequest()) & 0777);
+        self::assertNull($this->ops->current()['recovery_request'] ?? null);
+        self::assertSame(403, $this->guard()->web('POST', '/_update/recover', [], '{"option":"rollback"}')->status);
+    }
+
+    public function testAFiledRequestShowsAsRequestedUntilTheRunnerPublishesIt(): void
+    {
+        unlink($this->paths->status());
+        $token = bin2hex(random_bytes(32));
+        $request = ['target' => '3', 'token_hash' => hash('sha256', $token)];
+        file_put_contents($this->paths->startRequest(), json_encode($request));
+        $r = $this->guard()->web('GET', '/_update/status', ['x-thallo-update-token' => $token], '');
+        self::assertSame(200, $r->status);
+        self::assertSame(['status' => 'requested', 'target' => '3'], json_decode($r->body, true)['operation']);
+        $published = ['x-thallo-update-token' => $this->token];
+        self::assertSame(403, $this->guard()->web('GET', '/_update/status', $published, '')->status);
+    }
+
+    /** @param array<string,string> $headers */
+    private function recover(array $headers, string $body): int
+    {
+        return $this->guard()->web('POST', '/_update/recover', $headers, $body)->status;
+    }
+
+    private function guard(): Guard
+    {
+        return new Guard($this->paths, new Barrier($this->paths), static function (): void {
+        });
+    }
+}

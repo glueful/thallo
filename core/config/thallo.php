@@ -126,11 +126,21 @@ return [
     // The update notice (DISTRIBUTION.md decision 11): a daily job asks Packagist's public
     // metadata for the newest published glueful/thallo-core — a plain GET, no install
     // identifier — and administrators see a notice with the changelog link and the upgrade
-    // command. Never an updater. UPDATE_CHECK_ENABLED=false turns the check and the notice off.
+    // command; updating from the admin is `admin_updates` below. UPDATE_CHECK_ENABLED=false turns
+    // the check and the notice off.
     'update_check' => [
         'enabled' => (bool) env('UPDATE_CHECK_ENABLED', true),
         'package' => 'glueful/thallo-core',
         'notes_url' => 'https://github.com/glueful/thallo/blob/main/CHANGELOG.md',
+    ],
+
+    // Updating from the admin (docs/upgrading.md). Off unless the owner sets it; a guided installer
+    // may turn it on after `php bin/thallo-updater selftest` passes. The runner's user can rewrite
+    // this site's code — that is the trade the owner accepts by turning it on.
+    'admin_updates' => [
+        'enabled' => (bool) env('THALLO_ADMIN_UPDATES', false),
+        'keep_backups' => (int) env('THALLO_UPDATE_KEEP_BACKUPS', 3),
+        'verify_url' => env('THALLO_UPDATE_VERIFY_URL'),
     ],
 
     // Version retention / pruning. Raw env pass-through: do not cast here.

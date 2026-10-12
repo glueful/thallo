@@ -8,15 +8,19 @@ summary: "The upgrade sequence, and how to know when a newer Thallo is out."
 ## The sequence (from 1.0.0-beta.21 on)
 
 ```bash
-composer update && php glueful thallo:provision
+composer update glueful/thallo-core -W && php glueful thallo:provision && php glueful queue:restart
 ```
 
 then, only if OPcache runs with `opcache.validate_timestamps=0`, reload PHP-FPM. Thallo is
-installed as `glueful/thallo-core` in `vendor/` (with the
-capability packs alongside it), so `composer update` moves Thallo the way it moves the framework,
-and `thallo:provision` finishes the job: pending migrations, install-role grants, starter block
+installed as `glueful/thallo-core` in `vendor/` (with the capability packs alongside it).
+`composer update glueful/thallo-core -W` moves Thallo and its whole dependency tree — the
+framework, Symfony, Twig, and any of those your own `composer.json` also lists — while packages
+outside Thallo's tree stay at their `composer.lock` versions. `thallo:provision` finishes the job: pending migrations, install-role grants, starter block
 types, the extension cache, and the release's admin bundle published into `public/admin`. Read
 the release's **Upgrade Notes** in [CHANGELOG.md](https://github.com/glueful/thallo/blob/main/CHANGELOG.md) first.
+
+`queue:restart` asks every running queue worker to exit after its current job, so its supervisor
+starts it on the new code.
 
 Your own files are never touched by an upgrade: `.env`, `config/` overrides, `app/`, `routes/`,
 `database/migrations/`, `themes/{name}/`, `storage/`.
@@ -61,8 +65,8 @@ paths listed above.
 ## The Thallo website is an ordinary install
 
 thallo.dev runs the same template every site runs — `composer create-project --prefer-dist
---stability=beta glueful/thallo`, provisioned, upgraded with `composer update && php glueful
-thallo:provision`. There is no separate deploy path for it: the published release IS what the
+--stability=beta glueful/thallo`, provisioned, upgraded with `composer update glueful/thallo-core -W
+&& php glueful thallo:provision`. There is no separate deploy path for it: the published release IS what the
 website runs, and every release is exercised there by the exact upgrade every operator runs.
 
 ## What every upgrade must include
@@ -138,8 +142,124 @@ browser only; the next release shows again. The notice clears the moment the upg
 - `php glueful thallo:update:check` (add `--force` to ask now) shows the same status on the
   command line.
 - A failed check is silent: the previous answer stands until the next one succeeds.
-- There is no update button, and there will not be one in the self-hosted product: Composer
-  runs as the deploy user with write access to `vendor/`, never under the web worker.
+- On a single server that turned it on, the owner can also update from the card: see
+  *Updating from the admin* below. Composer still never runs under the web worker.
+
+## Updating from the admin
+
+For owners who run one server and would rather press **Update** than open a terminal. It is
+**off** unless you turn it on, and installs made with `composer create-project` never turn it on.
+When it is on, a separate **update runner** — scheduled by cron as the user that owns the code —
+does the update; PHP-FPM only checks, files the request and shows progress. That user can rewrite
+this site's code: that is the trade you accept by turning it on.
+
+### Turning it on
+
+1. Set `THALLO_ADMIN_UPDATES=true` in `.env`.
+2. Run `php glueful thallo:provision` **as the user that owns the code**. It installs
+   `bin/thallo-updater` and `bootstrap/update-guard.php`, which `public/index.php` and `glueful`
+   include, and creates the three update folders (below). (An install made before this release
+   adds the three include lines from the skeleton's `public/index.php` and `glueful` by hand; the
+   admin says so until they are there.)
+3. Add the runner to cron **as the user that owns the code** (the deploy user, not the web user):
+
+   ```text
+   * * * * * cd /path/to/site && php bin/thallo-updater tick
+   ```
+
+4. Put the web user and the code owner in one group, the group of `storage/`. Provision creates
+   the folders with these owners and modes; the runner refuses to act if they change:
+
+   | Folder | Owner | Mode | Holds |
+   | --- | --- | --- | --- |
+   | `.thallo-update/` | code owner | `0700` | everything the runner trusts: the operation and its journal, locks, the staged `vendor/`, Composer's home, logs and the update backups |
+   | `.thallo-update-control/` | code owner, the web group | `2750` (setgid; files `0640`) | what the runner publishes for PHP-FPM to read: status, the closed flag, the admission lock, the verification secret |
+   | `storage/framework/updates/` | the web group | `2770` | requests from the admin — the only update folder the web user can write |
+
+   The site's folder and every folder above it must be writable only by the code owner or root, so
+   that nobody else can swap the update folders for others. The web user writes nothing else either:
+   `vendor/`, `composer.json`, `composer.lock` and `public/admin/` stay writable only by the owner.
+5. Restart PHP-FPM (or Apache), every queue worker and every long-running job of the site, then
+   run `php bin/thallo-updater confirm-restart --yes`. Processes started before the guard existed
+   are invisible to it, so the command refuses while it can still see one; what it cannot see —
+   another user's process started elsewhere — is what your `--yes` confirms.
+6. Run `php bin/thallo-updater selftest` and fix every line that fails.
+
+### What an update does
+
+When you press **Update** and confirm, the browser moves to `/_update`, a page the guard serves
+even while the site's code is being replaced. The runner, within a minute:
+
+1. checks again that it can write the code and that Composer, `pg_dump` and disk space are there;
+2. installs the approved version into a copy of `vendor/` (`composer update
+   glueful/thallo-core:<version> -W`), so the live site is untouched if that fails;
+3. closes the site — visitors **and other admins** see a maintenance page — and asks workers to
+   restart;
+4. waits until every request, job and scheduler run already under way has finished;
+5. takes a database backup and checks that `pg_restore` can read it, and copies what provision
+   will change (the admin bundle, the API reference, the compiled styles, the extension cache);
+6. swaps the new `vendor/` and `composer.lock` in;
+7. runs `thallo:provision`;
+8. checks the installed version on the command line and **from PHP-FPM itself**;
+9. clears the caches, asks workers to restart, and reopens the site.
+
+### When it is unavailable
+
+The card lists why, one sentence each: the runner has not checked in (its cron line), the code is
+not writable by the runner or **is** writable by PHP-FPM, Composer is missing or older than 2.2,
+`pg_dump`/`pg_restore` are missing, there is not enough disk, the guard is not installed, PHP-FPM
+cannot be reached to verify (`THALLO_UPDATE_VERIFY_URL`), PHP preloads code
+(`opcache.preload`), OPcache never rechecks files (`opcache.validate_timestamps=0`), the site runs
+on a persistent runtime (RoadRunner, Swoole, FrankenPHP worker mode), the restart after enabling
+has not been confirmed, the update folders are not laid out as above, or the release is outside
+what your `composer.json` allows. Each of those
+means: update from the terminal, as above.
+
+The runner supports this `composer.json` shape: autoload paths inside the project (outside
+`vendor/`), the default `vendor-dir`, no `path` repositories and no relative `artifact` URLs, no
+`extra.installer-paths`, and only allowlisted Composer plugins (`php-http/discovery`). Anything
+else updates from the terminal.
+
+### When something fails
+
+- **Failed** — nothing live changed; the site is open on the old version.
+- **Rolled back** — the swap failed before provision started; the old code is back and verified,
+  and the site is open.
+- **Your site needs attention** — anything after provision started, or a runner that stopped. The
+  site **stays closed**. `/_update` shows what happened, the backup's path and the choices the
+  runner's own records allow: **Roll back the code** (while anything it replaced is still in
+  place), **Retry provision** (only when the whole new `vendor/` and `composer.lock` are in place)
+  and **Reopen the site** (typed confirmation).
+
+The database is never restored by Thallo. If an update changed it and you roll the code back,
+restore it yourself first, as the code owner (only that user can read the backup), into an empty
+schema — `pg_restore --clean` alone drops only what the dump holds, so a table the failed update
+created would survive it:
+
+```bash
+psql --dbname <database> -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+pg_restore --no-owner --dbname <database> .thallo-update/backups/<id>/database.dump
+```
+
+The same choices work from the terminal, as the code owner:
+`php bin/thallo-updater recover --rollback | --retry-provision | --reopen`. A browser that lost
+its token (another device) gets a new one from `php bin/thallo-updater token`. The last three
+update backups are kept (`THALLO_UPDATE_KEEP_BACKUPS`).
+
+### What the web user can and cannot do
+
+PHP-FPM can file a request to update to the version the admin offers, cancel it before the runner
+picks it up, and choose one of the recovery choices `/_update` shows. It cannot write anything the
+runner trusts. The runner checks every request itself: the version must be a release newer than the
+installed one, and Composer resolves it against your `composer.json` and its repositories, so a
+request never carries a path, a command, Composer options or environment settings. A request from
+the web user therefore cannot make the runner install code other than that release, or rename,
+write or delete anything outside its own fixed set of files.
+
+### Not supported
+
+More than one application server, network filesystems for the site, persistent PHP runtimes, PHP
+preloading, and installs without cron.
 
 ## Extensions
 

@@ -529,9 +529,12 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
              Keyed by locale so the panel re-seeds its slug/publish state on a locale switch. -->
         <div class="lg:min-h-0 lg:w-96 lg:shrink-0 lg:overflow-y-auto lg:p-1">
           <UCard>
+            <!-- The small size: at the default, Publishing, SEO, Versions and Commerce overrun the
+                 sidebar's width by a few pixels and every label truncates to an ellipsis. -->
             <UTabs
               v-model="sideTab"
               variant="link"
+              size="sm"
               :items="sideTabItems"
               :content="false"
               class="mb-4"

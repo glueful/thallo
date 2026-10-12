@@ -10,6 +10,33 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.102] - 2026-10-12 — Developer Preview
+
+Update Thallo from the admin: on a single server an owner can press Update, and a separate runner
+installs the release behind a verified backup and puts the old code back if it fails early. Also a
+menu change that reaches the shop's pages, and editor sidebar tabs that show their whole labels.
+
+### Added
+- **Update Thallo from the admin** (off unless you turn it on): on a single server, an owner presses
+  Update on the update notice. A separate runner, run by cron as the code owner, stages the release,
+  closes the site, takes a verified backup, installs and provisions it, and checks that PHP-FPM
+  serves it before reopening. A failure before the database could change puts the old code back;
+  any later failure keeps the site closed and offers recovery at `/_update`. PHP-FPM only files
+  requests: what the runner trusts lives in `.thallo-update/`, which only the code owner can read,
+  and the runner checks every request against the installed version and your Composer setup. See
+  *Updating from the admin* in the upgrading guide. The terminal upgrade is now `composer update glueful/thallo-core -W && php
+  glueful thallo:provision`, followed by `php glueful queue:restart`.
+
+### Fixed
+- **A menu edit now reaches the shop's pages**: a menu shows on the shop's pages too (the shop, its
+  categories and products), but a menu change cleared only the cache of the site's other pages. The
+  shop kept the old menu until its own cache expired (an hour by default), so an item added to the
+  header showed on `/about` and not on `/shop/categories/men`. A menu change now clears the shop's
+  cache as a header or footer save already did.
+- **The editor's sidebar tabs read whole**: with Publishing, SEO, Versions and Commerce side by
+  side, the tabs overran the sidebar's width and every label was cut to an ellipsis ("Publishi…",
+  "S…"). The tabs are now a size smaller and fit with room to spare.
+
 ## [1.0.0-beta.101] - 2026-10-11 — Developer Preview
 
 A Feature with a headline: an optional short line above its title with its own lettering, a padding
