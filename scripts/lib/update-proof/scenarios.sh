@@ -73,6 +73,9 @@ sc_1() { # Successful update, through the advertised path.
   tick_until succeeded || return 1
   version_is "$TARGET_V" && web_version_is "$TARGET_V" && table_exists update_proof && site_open || return 1
   curl -s "http://127.0.0.1:$PORT/admin/" | grep -q 'update-proof 901' || { up_log "admin bundle not republished"; return 1; }
+  # Setup ran under PHP-FPM, which with two users cannot write .env; the update's provision clears it.
+  [[ -z "$(grep -E '^SETUP_TOKEN=' "$SITE/.env" | cut -d= -f2- | tr -d "\"'")" ]] \
+    || { up_log "SETUP_TOKEN is still set after the update"; return 1; }
   local backup; backup="$(op_field backup.path)"
   pg_restore --list "$backup/database.dump" >/dev/null || { up_log "the backup cannot be read"; return 1; }
   # PHP, not stat: GNU `stat -f` means filesystem status and succeeds with the wrong answer.

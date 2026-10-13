@@ -19,6 +19,7 @@ use Thallo\Core\Updates\UpdateChecker;
 final class UpdateStatusApiTest extends AppTestCase
 {
     private const PATH = '/v1/admin/update-status';
+    private const CHECK_PATH = '/v1/admin/update-status/check';
 
     public function testTheRouteIsAuthenticatedButNotOperatorOnly(): void
     {
@@ -59,5 +60,38 @@ final class UpdateStatusApiTest extends AppTestCase
         self::assertSame('1.0.0-beta.22', $update['latest']);
         self::assertTrue($update['available']);
         self::assertSame('https://example.test/notes', $update['notesUrl']);
+    }
+
+    public function testCheckingNowIsForOperatorsAndRateLimited(): void
+    {
+        $route = $this->findRoute('POST', self::CHECK_PATH);
+
+        self::assertNotNull($route, 'POST ' . self::CHECK_PATH . ' must be registered');
+        self::assertContains('auth', $route['middleware']);
+        self::assertContains('content_permission:system.access', $route['middleware']);
+        self::assertContains('rate_limit', $route['middleware'], 'each click asks Packagist');
+    }
+
+    public function testCheckingNowAsksTheFeedEvenInsideTheDailyInterval(): void
+    {
+        $flags = $this->container()->get(SystemChannel::class);
+        $flags->put(UpdateChecker::FLAG_CHECKED_AT, date(DATE_ATOM));
+        $feed = new ScriptedReleaseFeed(['v1.0.0-beta.23', 'v1.0.0-beta.21']);
+        $checker = new UpdateChecker(
+            $feed,
+            $flags,
+            ['enabled' => true, 'package' => 'glueful/thallo-core', 'notes_url' => 'https://example.test/notes'],
+            '1.0.0-beta.21',
+            false,
+        );
+
+        $body = json_decode((string) (new UpdateStatusController($checker))->check()->getContent(), true);
+        $update = $body['data']['update'];
+
+        self::assertSame(['glueful/thallo-core'], $feed->calls);
+        self::assertDataMatchesDtoShape($update, UpdateStatusData::class);
+        self::assertSame('1.0.0-beta.23', $update['latest']);
+        self::assertTrue($update['available']);
+        self::assertNull($update['failedAt']);
     }
 }

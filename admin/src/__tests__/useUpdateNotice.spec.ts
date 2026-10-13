@@ -16,6 +16,7 @@ describe('useUpdateNotice', () => {
     enabled: true,
     checkedAt: '2026-09-12T04:00:00+00:00',
     notesUrl: 'https://github.com/glueful/thallo/blob/main/CHANGELOG.md',
+    failedAt: null,
     ...over,
   })
 
@@ -54,6 +55,7 @@ describe('versionLabel', () => {
       enabled: true,
       checkedAt: null,
       notesUrl: 'https://example.test',
+      failedAt: null,
     }
 
     expect(versionLabel(base)).toBe('Thallo 1.0.0-beta.25')

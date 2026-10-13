@@ -139,9 +139,12 @@ browser only; the next release shows again. The notice clears the moment the upg
 - A pre-release install (`1.0.0-beta.N`) is offered newer pre-releases and stable releases; a
   stable install is never pointed at a pre-release.
 - `UPDATE_CHECK_ENABLED=false` in `.env` turns the check and the notice off.
+- **Check for updates** on Utilities → Health asks Packagist now instead of waiting for 04:00,
+  and says what it found. It is limited to six checks a minute per user.
 - `php glueful thallo:update:check` (add `--force` to ask now) shows the same status on the
   command line.
-- A failed check is silent: the previous answer stands until the next one succeeds.
+- A failed daily check is silent: the previous answer stands until the next one succeeds.
+  **Check for updates** says when it could not reach Packagist.
 - On a single server that turned it on, the owner can also update from the card: see
   *Updating from the admin* below. Composer still never runs under the web worker.
 

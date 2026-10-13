@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useHealth, healthStatusColor, formatBytes } from '@/queries/health'
 import { useUpdateStatus } from '@/queries/updates'
+import UpdateCheckNow from '@/components/UpdateCheckNow.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -161,6 +162,7 @@ function fmtTime(v?: string | null): string {
                 <dd class="text-default">{{ fmtTime(health.timestamp) }}</dd>
               </div>
             </dl>
+            <UpdateCheckNow :status="update" class="mt-3" />
           </div>
         </template>
       </div>

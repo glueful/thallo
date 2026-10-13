@@ -14,6 +14,7 @@ const props = {
   current: '1.0.0-beta.21',
   target: '1.0.0-beta.22',
   notesUrl: 'https://example.test/notes',
+  failedAt: null,
 }
 
 describe('UpdateConfirmModal', () => {

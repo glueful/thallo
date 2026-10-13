@@ -27,6 +27,7 @@ const running = (over: Partial<UpdateStatus> = {}): UpdateStatus =>
     available: false,
     development: false,
     notesUrl: 'https://example.test/notes',
+    failedAt: null,
     ...over,
   }) as UpdateStatus
 

@@ -18,6 +18,7 @@ describe('UpdateAvailableCard', () => {
     enabled: true,
     checkedAt: '2026-09-12T04:00:00+00:00',
     notesUrl: 'https://github.com/glueful/thallo/blob/main/CHANGELOG.md',
+    failedAt: null,
   }
 
   it('names both versions, links the release notes, and shows the upgrade command', () => {

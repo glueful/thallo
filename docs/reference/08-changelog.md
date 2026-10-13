@@ -10,6 +10,25 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.104] - 2026-10-13 — Developer Preview
+
+Check for updates from the admin: Utilities → Health asks Packagist on demand instead of waiting
+for the daily check. Provision now clears `SETUP_TOKEN` once setup has run.
+
+### Added
+- **Check for updates from the admin**: Utilities → Health has a **Check for updates** button that
+  asks Packagist now instead of waiting for the daily 04:00 check, and says whether a newer Thallo
+  is out, you are on the newest version, or Packagist could not be reached. The Home card, the
+  sidebar and the nav badge follow straight away. New endpoint `POST /v1/admin/update-status/check`
+  (`system.access`, six a minute per user); the update status gains `failedAt`.
+
+### Fixed
+- **`SETUP_TOKEN` no longer stays in `.env` after setup**: provision, and so every update, blanks it
+  once setup has run, and no longer creates a new one each time it runs. Provision also stops
+  printing the "create the first admin" link once setup has run. Before, a site whose PHP-FPM
+  cannot write `.env` (code owned by another user) kept the token, and on every site a later
+  provision put a fresh one back. The token was already unusable after setup, which locks itself.
+
 ## [1.0.0-beta.103] - 2026-10-13 — Developer Preview
 
 Arrange the header on phones: the menu button can sit before the logo, a block can be pushed or
