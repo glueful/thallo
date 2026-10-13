@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.105] - 2026-10-13 — Developer Preview
+
+Phones and tablets: a page designed on Desktop keeps its spacing and columns on smaller screens, a
+Container's overlay can be set per screen size, a large header logo fits a phone's header row, and
+the menu button follows the header's text colour.
 
 ### Added
 - **A Container's overlay per screen size**: the Style tab has an **Overlay** section, Overlay

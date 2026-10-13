@@ -10,6 +10,37 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.105] - 2026-10-13 — Developer Preview
+
+Phones and tablets: a page designed on Desktop keeps its spacing and columns on smaller screens, a
+Container's overlay can be set per screen size, a large header logo fits a phone's header row, and
+the menu button follows the header's text colour.
+
+### Added
+- **A Container's overlay per screen size**: the Style tab has an **Overlay** section, Overlay
+  (None, Light, Dark) and Overlay opacity (25%, 50%, 75%), each set per screen size, so a photo
+  behind text can be darkened on phones and left clear on a wide screen. Where a size has a value it
+  wins over the block's Overlay fields, which keep working at every size; a nested container never
+  takes the overlay of the one around it. Settings version 22; StyleCompiler 31.
+
+### Changed
+- **A page designed on Desktop keeps its design on phones and tablets**: the editor opens on
+  Desktop, and a setting given a value there was saved for Desktop alone, so phones and tablets
+  got none of it: no side margins, no padding, no columns. Now the first value a setting gets on
+  Desktop or Tablet, when the block has none for it at any width, is saved for every width, and the
+  width you were on keeps its own copy, so changing it later on Mobile leaves Desktop as it was.
+  The same holds in a header's or footer's Style tab. Pages saved before keep their values: fix one
+  by setting the value on Mobile, or with **Apply to all breakpoints**.
+- **A large header logo fits a phone's header row**: on a phone a Large logo in the header is drawn
+  at the Medium height, and no header logo is wider than 40% of the screen. Before, a wide Large
+  logo pushed the last icon (often the cart) onto a second line.
+
+### Fixed
+- **The menu button follows the header's text colour**: with no style of its own, a phone or
+  tablet's menu button drew its bars in the theme's dark ink, so they all but vanished on a dark
+  header while the search and cart icons beside it were light. They now take the text colour around
+  them. A Navigation block's **Menu button** section still sets its own colour.
+
 ## [1.0.0-beta.104] - 2026-10-13 — Developer Preview
 
 Check for updates from the admin: Utilities → Health asks Packagist on demand instead of waiting
