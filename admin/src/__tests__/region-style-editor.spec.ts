@@ -57,7 +57,7 @@ describe('a region’s Style tab', () => {
     w.unmount()
   })
 
-  it('writes a responsive value at the breakpoint being edited, and a bare one bare', async () => {
+  it('writes a first responsive value for every size, keeping the edited size’s own copy, and a bare one bare', async () => {
     const w = mountEditor({}, 'md')
     await w.find('[data-test="style-field-shadow"] [data-test="token-shadow.md"]').trigger('click')
     await flushPromises()
@@ -66,7 +66,7 @@ describe('a region’s Style tab', () => {
       .trigger('click')
     await flushPromises()
     expect(w.last()).toEqual({
-      shadow: { md: token('shadow.md') },
+      shadow: { base: token('shadow.md'), md: token('shadow.md') },
       colors: { surface_opacity: { type: 'choice', value: '80' } },
     })
     w.unmount()

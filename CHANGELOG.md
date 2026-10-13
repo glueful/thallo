@@ -5,6 +5,20 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Changed
+- **A page designed on Desktop keeps its design on phones and tablets**: the editor opens on
+  Desktop, and a setting given a value there was saved for Desktop alone, so phones and tablets
+  got none of it: no side margins, no padding, no columns. Now the first value a setting gets on
+  Desktop or Tablet, when the block has none for it at any width, is saved for every width, and the
+  width you were on keeps its own copy, so changing it later on Mobile leaves Desktop as it was.
+  The same holds in a header's or footer's Style tab. Pages saved before keep their values: fix one
+  by setting the value on Mobile, or with **Apply to all breakpoints**.
+- **A large header logo fits a phone's header row**: on a phone a Large logo in the header is drawn
+  at the Medium height, and no header logo is wider than 40% of the screen. Before, a wide Large
+  logo pushed the last icon (often the cart) onto a second line.
+
 ## [1.0.0-beta.104] - 2026-10-13 — Developer Preview
 
 Check for updates from the admin: Utilities → Health asks Packagist on demand instead of waiting

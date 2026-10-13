@@ -8,7 +8,9 @@
  * Headers: `default.html` — a logo, a Navigation block and a button, nothing set; `first.html` — the
  * Navigation block first on phones and back in place from md; `pair.html` — a logo and a Navigation
  * block alone, the menu first; `centre.html` — the menu first and the logo pushed from both sides;
- * `styled.html` — a black header whose menu button is large, accent, filled, borderless and round.
+ * `styled.html` — a black header whose menu button is large, accent, filled, borderless and round;
+ * `large.html` — a Large logo (a 3:1 image, swapped in for the site name: the test site has no
+ * logo upload) with the menu and a button.
  *
  *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-header-layout-fixtures
  */
@@ -79,8 +81,8 @@ $container->get(StarterBlockTypeSeeder::class)->seedMissing();
 
 $choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
 $token = static fn (string $v): array => ['type' => 'token', 'value' => $v];
-$logo = static fn (array $style = []): array => ['id' => 'hdrlayoutlgo', 'type' => 'logo',
-    'data' => ['size' => 'medium', 'link_home' => true], 'settings' => $style === [] ? [] : ['style' => $style]];
+$logo = static fn (array $style = [], string $size = 'medium'): array => ['id' => 'hdrlayoutlgo', 'type' => 'logo',
+    'data' => ['size' => $size, 'link_home' => true], 'settings' => $style === [] ? [] : ['style' => $style]];
 $nav = static fn (array $settings = []): array => ['id' => 'hdrlayoutnav', 'type' => 'navigation',
     'data' => ['menu' => 'header-layout'], 'settings' => $settings];
 $button = ['id' => 'hdrlayoutbtn', 'type' => 'button', 'data' => ['label' => 'Cart', 'url' => '/cart'], 'settings' => []];
@@ -101,6 +103,7 @@ $headers = [
         'radius' => $token('radius.full'),
         'menu_button' => ['size' => $choice('lg')],
     ]]]), $button], ['style' => ['colors' => ['surface' => $token('color.black'), 'text' => $token('color.white')]]]],
+    'large' => [[$logo([], 'large'), $nav(), $button], []],
 ];
 
 try {
@@ -141,9 +144,20 @@ try {
             $html = (string) $response->getContent();
             // Each page must carry its own header, not a cached one.
             $marker = ['default' => 'thallo-block-navigation', 'first' => 't-order-first', 'pair' => 't-order-first',
-                'centre' => 't-push-both', 'styled' => 't-mbsize-lg'][$name];
+                'centre' => 't-push-both', 'styled' => 't-mbsize-lg', 'large' => 'thallo-block-logo--large'][$name];
             if (!str_contains($html, $marker) || ($name === 'default' && str_contains($html, 't-order-first'))) {
                 throw new RuntimeException("the {$name} page does not carry its header");
+            }
+            if ($name === 'large') {
+                // A 300x100 logo, as a wide brand mark is drawn: the size class sets its height.
+                $svg = rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100" width="300" '
+                    . 'height="100"><rect width="300" height="100" fill="#c9a24a"/></svg>');
+                $html = (string) preg_replace(
+                    '~<span class="thallo-block-logo__name">[^<]*</span>~',
+                    '<img class="thallo-block-logo__image" src="data:image/svg+xml,' . $svg . '" alt="Logo">',
+                    $html,
+                    1,
+                );
             }
             file_put_contents($out . "/{$name}.html", $selfContained($html));
         }
@@ -157,4 +171,4 @@ try {
     exit(1);
 }
 
-fwrite(STDOUT, "Wrote default.html, first.html, pair.html, centre.html, styled.html to tools/runtime-browser/fixtures/header-layout.\n");
+fwrite(STDOUT, "Wrote default.html, first.html, pair.html, centre.html, styled.html, large.html to tools/runtime-browser/fixtures/header-layout.\n");

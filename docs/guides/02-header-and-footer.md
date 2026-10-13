@@ -133,7 +133,11 @@ would check it and then shown; an edit the server refuses is named in a message,
 stops updating until you press **Stage paused — resume** in the toolbar.
 
 The three width buttons set the stage's width: desktop, tablet at 768px and mobile at 390px. The
-one you choose is also the breakpoint a responsive style setting is written at.
+one you choose is also the breakpoint a responsive style setting is written at; the first value a
+setting gets on desktop or tablet reaches every width.
+
+On a phone a **Large** logo in the header is drawn at the **Medium** height, and no header logo
+is wider than 40% of the screen, so the logo, the menu button and a few icons fit on one row.
 
 Pick another page to see the bars around it; your unsaved edits come with you. If the page you
 pick hides the header or footer in its own settings, the inspector says so. The stage needs the
