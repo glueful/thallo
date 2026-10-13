@@ -19,6 +19,12 @@ as the next release, never a mutated tag.
   at the Medium height, and no header logo is wider than 40% of the screen. Before, a wide Large
   logo pushed the last icon (often the cart) onto a second line.
 
+### Fixed
+- **The menu button follows the header's text colour**: with no style of its own, a phone or
+  tablet's menu button drew its bars in the theme's dark ink, so they all but vanished on a dark
+  header while the search and cart icons beside it were light. They now take the text colour around
+  them. A Navigation block's **Menu button** section still sets its own colour.
+
 ## [1.0.0-beta.104] - 2026-10-13 — Developer Preview
 
 Check for updates from the admin: Utilities → Health asks Packagist on demand instead of waiting

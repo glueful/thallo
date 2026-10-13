@@ -143,3 +143,14 @@ test('a Large header logo is drawn at the Medium height on phones, and at its ow
   await p.setViewportSize(WIDE);
   expect(Math.round((await logo(p)).height)).toBe(56);
 });
+
+test("with no style of its own, the menu button's bars are the header's text colour", async ({ page: p }) => {
+  await p.setViewportSize(PHONE);
+  await p.goto(page('dark'));
+  const [bar, header] = await Promise.all([
+    p.locator('.thallo-block-navigation__hamburger-icon').evaluate((el) => getComputedStyle(el).backgroundColor),
+    p.locator(HEADER).evaluate((el) => getComputedStyle(el).color),
+  ]);
+  expect(header).toBe('rgb(255, 255, 255)');
+  expect(bar).toBe(header);
+});
