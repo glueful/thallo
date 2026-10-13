@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.103] - 2026-10-13 — Developer Preview
+
+Arrange the header on phones: the menu button can sit before the logo, a block can be pushed or
+centred in the row, and the menu button has a Style section of its own. A phone's open menu is now a
+panel under the header.
 
 ### Added
 - **Arrange the header on phones, and style its menu button**: two settings in a block's Layout tab,
