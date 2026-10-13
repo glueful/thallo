@@ -96,6 +96,18 @@ final class UpdateCheckerTest extends AppTestCase
         self::assertTrue($status->available);
         self::assertNotNull($this->flags()->get('update.failed_at'));
         self::assertNull($this->flags()->get('update.checked_at'), 'a failure is not a check');
+        self::assertNotNull($status->failedAt, 'the admin is told the last check did not complete');
+    }
+
+    public function testACompletedCheckClearsAnEarlierFailure(): void
+    {
+        $this->flags()->put('update.failed_at', date(DATE_ATOM, time() - 60));
+        [$checker] = $this->checker(['v1.0.0-beta.22']);
+
+        $status = $checker->check(force: true);
+
+        self::assertNull($status->failedAt);
+        self::assertNull($this->flags()->get('update.failed_at'));
     }
 
     public function testNothingNewerClearsAStaleLatest(): void
@@ -143,7 +155,7 @@ final class UpdateCheckerTest extends AppTestCase
         self::assertSame('1.0.0-beta.22', $status->latest);
         self::assertFalse($status->available, 'the installed version is read at request time');
         self::assertSame(
-            ['current', 'latest', 'available', 'development', 'enabled', 'checkedAt', 'notesUrl'],
+            ['current', 'latest', 'available', 'development', 'enabled', 'checkedAt', 'notesUrl', 'failedAt'],
             array_keys($status->toArray()),
         );
     }

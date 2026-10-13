@@ -1,4 +1,4 @@
-import { useQuery } from '@pinia/colada'
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { ApiError, toApiError } from '@/api/errors'
@@ -18,6 +18,8 @@ export interface UpdateStatus {
   enabled: boolean
   checkedAt: string | null
   notesUrl: string
+  /** When the last check could not reach Packagist; null once a check completes. */
+  failedAt: string | null
 }
 
 export const UPGRADE_COMMAND =
@@ -29,12 +31,30 @@ export async function fetchUpdateStatus(): Promise<UpdateStatus> {
   return (data?.data?.update ?? {}) as UpdateStatus
 }
 
+const UPDATE_STATUS_KEY = ['utilities', 'update-status']
+
 export function useUpdateStatus() {
   return useQuery({
-    key: ['utilities', 'update-status'],
+    key: UPDATE_STATUS_KEY,
     query: fetchUpdateStatus,
     // The server checks once a day; an hour of staleness costs nothing here.
     staleTime: 60 * 60 * 1000,
+  })
+}
+
+/** Health's "Check now": asks Packagist without waiting for the daily check (system.access). */
+export async function checkForUpdates(): Promise<UpdateStatus> {
+  const { data, error, response } = await client.POST('/update-status/check')
+  if (error) throw toApiError(error, response)
+  return (data?.data?.update ?? {}) as UpdateStatus
+}
+
+/** The checked status replaces the cached one, so every notice (Home, sidebar, nav badge) follows. */
+export function useCheckForUpdates() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: checkForUpdates,
+    onSuccess: (status) => cache.setQueryData(UPDATE_STATUS_KEY, status),
   })
 }
 

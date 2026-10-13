@@ -4094,6 +4094,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/update-status/check': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Check for updates now
+     * @description Asks Packagist now, without waiting for the daily check, and answers the update status. `failedAt` is set when Packagist could not be reached; the previous result stands. A development checkout, or an install with the check turned off, is never checked. Requires the system.access permission.
+     */
+    post: operations['postV1AdminUpdatestatusCheck']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/users': {
     parameters: {
       query?: never
@@ -34021,6 +34041,7 @@ export interface operations {
                 enabled?: boolean
                 checkedAt?: string | null
                 notesUrl?: string
+                failedAt?: string | null
               }
             }
           }
@@ -34046,6 +34067,115 @@ export interface operations {
       /** @description Forbidden. */
       403: {
         headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminUpdatestatusCheck: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Update status after the check. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success: boolean
+            message: string
+            data: {
+              update?: {
+                current?: string | null
+                latest?: string | null
+                available?: boolean
+                development?: boolean
+                enabled?: boolean
+                checkedAt?: string | null
+                notesUrl?: string
+                failedAt?: string | null
+              }
+            }
+          }
+        }
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Too Many Requests. */
+      429: {
+        headers: {
+          /** @description Seconds to wait before retrying. */
+          'Retry-After'?: number
+          /** @description Request quota for the current window. */
+          'X-RateLimit-Limit'?: number
+          /** @description Requests remaining in the current window. */
+          'X-RateLimit-Remaining'?: number
           [name: string]: unknown
         }
         content: {

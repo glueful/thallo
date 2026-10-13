@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Check for updates from the admin**: Utilities → Health has a **Check for updates** button that
+  asks Packagist now instead of waiting for the daily 04:00 check, and says whether a newer Thallo
+  is out, you are on the newest version, or Packagist could not be reached. The Home card, the
+  sidebar and the nav badge follow straight away. New endpoint `POST /v1/admin/update-status/check`
+  (`system.access`, six a minute per user); the update status gains `failedAt`.
+
 ## [1.0.0-beta.103] - 2026-10-13 — Developer Preview
 
 Arrange the header on phones: the menu button can sit before the logo, a block can be pushed or
