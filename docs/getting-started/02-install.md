@@ -81,7 +81,8 @@ Next: create the first admin
   2. Or from this terminal:          php glueful thallo:create-admin
 ```
 
-Keep that link: it carries this install's `SETUP_TOKEN`. Running provision again prints it again.
+Keep that link: it carries this install's `SETUP_TOKEN`. Running provision again prints it again,
+until the first admin exists: from then on provision prints no link and blanks the token.
 The link is built from `BASE_URL`; while that is unset or a local address, provision adds a
 warning that the link opens only on the machine it ran on. Set `BASE_URL` to the site's real
 address and run provision again for a link you can open from elsewhere.

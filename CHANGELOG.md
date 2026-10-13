@@ -14,6 +14,13 @@ as the next release, never a mutated tag.
   sidebar and the nav badge follow straight away. New endpoint `POST /v1/admin/update-status/check`
   (`system.access`, six a minute per user); the update status gains `failedAt`.
 
+### Fixed
+- **`SETUP_TOKEN` no longer stays in `.env` after setup**: provision, and so every update, blanks it
+  once setup has run, and no longer creates a new one each time it runs. Provision also stops
+  printing the "create the first admin" link once there is an admin. Before, a site whose PHP-FPM
+  cannot write `.env` (code owned by another user) kept the token, and on every site a later
+  provision put a fresh one back. The token was already unusable after setup, which locks itself.
+
 ## [1.0.0-beta.103] - 2026-10-13 — Developer Preview
 
 Arrange the header on phones: the menu button can sit before the logo, a block can be pushed or

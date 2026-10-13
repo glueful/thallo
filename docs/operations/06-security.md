@@ -66,9 +66,11 @@ back as an `X-Setup-Token` header, compared in constant time.
 - With no token set, setup is refused in production and stays open outside it, which is what
   keeps a local install zero-configuration.
 - The endpoint locks itself the moment the first admin exists. Every later call answers 409, and
-  `SETUP_TOKEN` is blanked from `.env`.
+  `SETUP_TOKEN` is blanked from `.env`. Where PHP-FPM may not write `.env` (the code belongs to
+  another user), the next `php glueful thallo:provision` blanks it instead; every update runs
+  provision. Once setup has run, provision never creates a new token.
 
-Run provision again to print the link again. `php glueful thallo:create-admin` creates the first
+Until the first admin exists, run provision again to print the link again. `php glueful thallo:create-admin` creates the first
 admin from the terminal instead, with no HTTP door opened at all. See
 [install Thallo](../getting-started/02-install.md).
 

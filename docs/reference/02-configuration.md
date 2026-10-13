@@ -237,8 +237,9 @@ Search is off until its capability is switched on. See [search](../guides/11-sea
 ## Security
 
 `php glueful thallo:provision` generates `APP_KEY`, `JWT_KEY`, `TOKEN_SALT` and `SETUP_TOKEN`
-when they are empty. Keep them out of version control and back them up: encrypted values and
-signed previews do not survive a change.
+when they are empty; `SETUP_TOKEN` only until setup has run, after which provision blanks it.
+Keep them out of version control and back them up: encrypted values and signed previews do not
+survive a change.
 
 | Key | Default | What it does |
 |---|---|---|
