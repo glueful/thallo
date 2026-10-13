@@ -746,4 +746,18 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.t-falign-end { align-items: flex-end; }', $css);
         self::assertStringContainsString('.md\\:t-falign-center { align-items: center; }', $css);
     }
+
+    public function testAnOverlaySetsItsColourAndStrengthPerWidth(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-ovtone-dark', ClassNames::for('overlay.tone', 'dark'));
+        self::assertSame('t-ovopacity-75', ClassNames::for('overlay.opacity', '75'));
+        self::assertStringContainsString('.t-ovtone-none { --thallo-overlay-bg: transparent; }', $css);
+        self::assertStringContainsString('.t-ovtone-light { --thallo-overlay-bg: #fff; }', $css);
+        self::assertStringContainsString('.t-ovtone-dark { --thallo-overlay-bg: #000; }', $css);
+        self::assertStringContainsString('.t-ovopacity-25 { --thallo-overlay-opacity: 0.25; }', $css);
+        // Per width: none on a wide screen takes a phone's overlay away.
+        self::assertStringContainsString('.lg\\:t-ovtone-none { --thallo-overlay-bg: transparent; }', $css);
+        self::assertStringContainsString('.md\\:t-ovopacity-50 { --thallo-overlay-opacity: 0.5; }', $css);
+    }
 }

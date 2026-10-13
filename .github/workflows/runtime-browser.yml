@@ -21,6 +21,7 @@ on:
       - 'scripts/build-palette-fixtures'
       - 'scripts/build-product-grid-fixtures'
       - 'scripts/build-header-layout-fixtures'
+      - 'scripts/build-overlay-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -63,6 +64,7 @@ on:
       - 'scripts/build-palette-fixtures'
       - 'scripts/build-product-grid-fixtures'
       - 'scripts/build-header-layout-fixtures'
+      - 'scripts/build-overlay-fixtures'
       - 'packages/thallo-commerce/assets/shop.js'
       - 'packages/thallo-commerce/src/Shop/ShopAssetMap.php'
       - 'tests/fixtures/render/**'
@@ -260,6 +262,12 @@ jobs:
       - name: Build the header layout fixtures
         working-directory: .
         run: php scripts/build-header-layout-fixtures
+
+      # A Container's overlay as a browser draws it (container-overlay.spec.js): the Overlay field,
+      # the Style tab's overlay per width, both at once and a nested container, then rolled back.
+      - name: Build the container overlay fixture
+        working-directory: .
+        run: php scripts/build-overlay-fixtures
 
       - uses: actions/setup-node@v6
         with:

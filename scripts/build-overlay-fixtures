@@ -1,0 +1,131 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Build the container overlay fixture (container-overlay.spec.js): one published page of four
+ * containers into `tools/runtime-browser/fixtures/container-overlay/page.html` (gitignored),
+ * stylesheets inlined and scripts dropped. Seeded inside a transaction that is rolled back.
+ *
+ * Containers, by id: `ovfield` — the Overlay field alone (dark, 75); `ovstyle` — the Style tab's
+ * overlay alone, dark at 50 on phones and none from lg; `ovboth` — the field dark, the style none
+ * from lg; `ovnest` — a container with no overlay of its own inside the `ovfield` one, light from
+ * md only.
+ *
+ *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-overlay-fixtures
+ */
+
+declare(strict_types=1);
+
+use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSync;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Tests\Support\ListingPageSeed;
+use Thallo\Core\Tests\Support\TestApplication;
+
+require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/lib/layout-thumbnails.php';
+
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+$_ENV['DB_POOLING_ENABLED'] = 'false';
+$root = dirname(__DIR__);
+if (is_file($root . '/.env')) {
+    Dotenv\Dotenv::createImmutable($root)->safeLoad();
+}
+$env = static fn (string $key, ?string $default = null): ?string => $_ENV[$key] ?? (getenv($key) === false ? $default : getenv($key));
+if ($env('APP_ENV', 'development') !== 'testing') {
+    fwrite(STDERR, "Refusing to build outside APP_ENV=testing (it seeds the test database).\n");
+    exit(1);
+}
+$database = (string) $env('DB_PGSQL_DATABASE', '');
+if ($database !== 'app_test' && !str_ends_with($database, '_test')) {
+    fwrite(STDERR, "Refusing to seed non-test database '{$database}'.\n");
+    exit(1);
+}
+
+$out = $root . '/tools/runtime-browser/fixtures/container-overlay';
+if (!is_dir($out) && !mkdir($out, 0755, true)) {
+    fwrite(STDERR, "cannot create {$out}\n");
+    exit(1);
+}
+
+$app = TestApplication::instance();
+$container = $app->getContainer();
+$context = $container->get(ApplicationContext::class);
+$db = $container->get(Connection::class);
+
+/** The page as a self-contained document: stylesheets and fonts inlined, scripts dropped. */
+$selfContained = static fn (string $html): string => layout_self_contained(
+    $html,
+    static fn (Request $request): Response => $app->handle($request),
+    [],
+    $root,
+);
+
+/** Thrown to roll the seeding back once the page is written. */
+final class OverlayFixtureWritten extends RuntimeException
+{
+}
+
+$container->get(StarterBlockTypeSeeder::class)->seedMissing();
+
+$choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
+$text = static fn (string $id, string $words): array => ['id' => $id, 'type' => 'rich_text',
+    'data' => ['body' => "<p>{$words}</p>"], 'settings' => []];
+$box = static fn (string $id, array $data, array $style, array $content): array => ['id' => $id,
+    'type' => 'container', 'data' => $data + ['content' => $content],
+    'settings' => $style === [] ? [] : ['style' => $style]];
+
+$body = [
+    $box('ovfield', ['overlay' => 'dark', 'overlay_opacity' => '75'], [], [
+        $text('ovfieldtxt', 'The Overlay field alone.'),
+        $box('ovnest', [], ['overlay' => ['tone' => ['md' => $choice('light')]]], [
+            $text('ovnesttxt', 'A container inside it, light from md only.'),
+        ]),
+    ]),
+    $box('ovstyle', [], ['overlay' => [
+        'tone' => ['base' => $choice('dark'), 'lg' => $choice('none')],
+        'opacity' => ['base' => $choice('50')],
+    ]], [$text('ovstyletxt', 'Dark on phones, none from lg.')]),
+    $box('ovboth', ['overlay' => 'dark', 'overlay_opacity' => '50'], ['overlay' => [
+        'tone' => ['lg' => $choice('none')],
+    ]], [$text('ovbothtxt', 'The field dark, the style none from lg.')]),
+];
+
+try {
+    $db->transaction(static function () use ($container, $context, $app, $selfContained, $out, $body): void {
+        // A test database seeded before this release keeps the container's old capabilities.
+        $container->get(StarterBlockTypeSync::class)->sync();
+        $type = (string) $container->get(ContentTypeRepository::class)->create([
+            'slug' => 'landing', 'name' => 'Landing pages', 'public_delivery' => true, 'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        (new ListingPageSeed($container, $context))->publish($type, 'page', ['title' => 'Page', 'body' => $body],
+            '2026-07-01 09:00:00');
+
+        $response = $app->handle(Request::create('/landing/page', 'GET'));
+        if ($response->getStatusCode() !== 200) {
+            throw new RuntimeException("/landing/page answered {$response->getStatusCode()}");
+        }
+        $html = (string) $response->getContent();
+        if (!str_contains($html, 'lg:t-ovtone-none')) {
+            throw new RuntimeException('the page does not carry the overlay settings');
+        }
+        file_put_contents($out . '/page.html', $selfContained($html));
+
+        throw new OverlayFixtureWritten();
+    });
+} catch (OverlayFixtureWritten) {
+    // Written, and rolled back.
+} catch (Throwable $e) {
+    fwrite(STDERR, 'the container overlay fixture failed: ' . $e::class . ': ' . $e->getMessage() . "\n");
+    exit(1);
+}
+
+fwrite(STDOUT, "Wrote page.html to tools/runtime-browser/fixtures/container-overlay.\n");

@@ -86,6 +86,35 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('thallo-block-container--overlay-50', $odd);
     }
 
+    public function testAContainersOverlayCanBeSetPerWidthInItsStyle(): void
+    {
+        // Dark at half strength on a phone and none from lg: the layer is drawn, and the root
+        // carries a class per width that the theme's overlay reads.
+        $this->syncBlockStyleDeclarations();
+        $out = $this->render([[
+            'id' => 'co', 'type' => 'container',
+            'data' => ['content' => []],
+            'settings' => ['style' => ['overlay' => [
+                'tone' => ['base' => ['type' => 'choice', 'value' => 'dark'],
+                    'lg' => ['type' => 'choice', 'value' => 'none']],
+                'opacity' => ['base' => ['type' => 'choice', 'value' => '50']],
+            ]]],
+        ]]);
+        $root = $this->rootTag($out, 'thallo-block-container');
+        self::assertStringContainsString('t-ovtone-dark', $root);
+        self::assertStringContainsString('lg:t-ovtone-none', $root);
+        self::assertStringContainsString('t-ovopacity-50', $root);
+        self::assertStringContainsString('thallo-block-container__overlay', $out);
+        self::assertStringNotContainsString('style=', $out);
+
+        // The Overlay field still works alone, and a style with no overlay draws no layer.
+        $plain = $this->render([[
+            'id' => 'cp', 'type' => 'container', 'data' => ['content' => []],
+            'settings' => ['style' => ['radius' => ['type' => 'token', 'value' => 'radius.lg']]],
+        ]]);
+        self::assertStringNotContainsString('__overlay', $plain);
+    }
+
     public function testContainerColoursCornersAndSpacingAreSettingsOnTheRoot(): void
     {
         $this->syncBlockStyleDeclarations();

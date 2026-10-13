@@ -73,6 +73,8 @@ tools/runtime-browser/fixtures/palette/
 tools/runtime-browser/fixtures/product-grid/
 # scripts/build-header-layout-fixtures renders one page under five headers (header-layout.spec.js).
 tools/runtime-browser/fixtures/header-layout/
+# scripts/build-overlay-fixtures renders one page of four containers (container-overlay.spec.js).
+tools/runtime-browser/fixtures/container-overlay/
 
 # A capability override the e2e fixture builder writes for its own boot (restored on exit).
 /config/testing/thallo.php

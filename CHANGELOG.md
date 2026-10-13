@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **A Container's overlay per screen size**: the Style tab has an **Overlay** section, Overlay
+  (None, Light, Dark) and Overlay opacity (25%, 50%, 75%), each set per screen size, so a photo
+  behind text can be darkened on phones and left clear on a wide screen. Where a size has a value it
+  wins over the block's Overlay fields, which keep working at every size; a nested container never
+  takes the overlay of the one around it. Settings version 22; StyleCompiler 31.
+
 ### Changed
 - **A page designed on Desktop keeps its design on phones and tablets**: the editor opens on
   Desktop, and a setting given a value there was saved for Desktop alone, so phones and tablets

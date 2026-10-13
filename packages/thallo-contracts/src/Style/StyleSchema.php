@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 21;
+    public const VERSION = 22;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -320,6 +320,15 @@ final class StyleSchema
         // one value serves every width.
         $byPath['menu_button.size'] = new PropertyDefinition('menu_button.size', 'menu_button', $choice, false, null, [
             'sm', 'md', 'lg',
+        ]);
+        // Settings version 22: a Container's overlay over its background image or video, per width,
+        // so text over a photo can have it on a phone and not on a wide screen. The block's Overlay
+        // field is still read, as the value every width starts from.
+        $byPath['overlay.tone'] = new PropertyDefinition('overlay.tone', 'overlay', $choice, true, null, [
+            'none', 'light', 'dark',
+        ]);
+        $byPath['overlay.opacity'] = new PropertyDefinition('overlay.opacity', 'overlay', $choice, true, null, [
+            '25', '50', '75',
         ]);
         return self::$properties = $byPath;
     }
