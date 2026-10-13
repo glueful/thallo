@@ -50,6 +50,12 @@ for n in "${SCENARIOS[@]}"; do
     id="$(op_field id 2>/dev/null || true)"
     [[ -n "$id" && -f "$SITE/.thallo-update/logs/$id.log" ]] && tail -40 "$SITE/.thallo-update/logs/$id.log" >&2
     tail -20 "$WORK/ticks.log" >&2 || true
+    # What the web side saw: a 502 is PHP-FPM gone or its workers dying, which only these logs tell apart.
+    for f in "$WORK/fpm.log" "$WORK/fpm.out" "$WORK/fcgi.log" "$WORK/nginx/error.log"; do
+      [[ -s "$f" ]] && { up_log "== $f"; tail -30 "$f" >&2; }
+    done
+    up_log "== FastCGI processes"; pgrep -a -f 'php-fpm|php-cgi' >&2 || up_log "(none)"
+    up_log "== kernel"; dmesg 2>/dev/null | grep -iE 'oom|killed process|segfault|php' | tail -10 >&2 || true
     failed=1
     break
   fi

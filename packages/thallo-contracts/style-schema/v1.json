@@ -1,5 +1,5 @@
 {
-    "version": 20,
+    "version": 21,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -1113,6 +1113,52 @@
             "choices": null,
             "kinds": [
                 "token",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.order",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "first",
+                "default",
+                "last"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "layout.push",
+            "group": "layout.item",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "before",
+                "after",
+                "both"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "menu_button.size",
+            "group": "menu_button",
+            "responsive": false,
+            "token_domain": null,
+            "choices": [
+                "sm",
+                "md",
+                "lg"
+            ],
+            "kinds": [
+                "choice",
                 "reset"
             ]
         }

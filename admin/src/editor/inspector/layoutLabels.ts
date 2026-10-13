@@ -21,6 +21,8 @@ export const LAYOUT_LABELS: Record<string, string> = {
   'layout.grow': 'Grow',
   'layout.shrink': 'Shrink',
   'layout.align_self': 'Align self',
+  'layout.order': 'Order',
+  'layout.push': 'Push',
 }
 
 export const DIRECTION_ICONS: Record<string, string> = {

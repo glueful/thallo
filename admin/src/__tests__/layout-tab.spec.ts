@@ -60,6 +60,8 @@ const schema: StyleSchemaResult = {
     row('layout.grow', 'layout.item', true, null, ['0', '1']),
     row('layout.shrink', 'layout.item', true, null, ['0', '1']),
     row('layout.align_self', 'layout.item', true, null, ['start', 'center', 'end', 'stretch']),
+    row('layout.order', 'layout.item', true, null, ['first', 'default', 'last']),
+    row('layout.push', 'layout.item', true, null, ['none', 'before', 'after', 'both']),
   ] as StyleSchemaResult['properties'],
   advanced: ['anchor', 'css_classes', 'attributes', 'accessibility.label'],
   vocabulary: {
@@ -651,7 +653,11 @@ describe('As an item', () => {
     let fields = inGrid
       .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
       .map((el) => el.attributes('data-test'))
-    expect(fields).toEqual(['style-field-layout.span', 'style-field-layout.align_self'])
+    expect(fields).toEqual([
+      'style-field-layout.span',
+      'style-field-layout.align_self',
+      'style-field-layout.order',
+    ])
 
     const inFlex = mountTab({
       block: block('h1', 'heading'),
@@ -667,7 +673,21 @@ describe('As an item', () => {
       'style-field-layout.grow',
       'style-field-layout.shrink',
       'style-field-layout.align_self',
+      'style-field-layout.order',
+      'style-field-layout.push',
     ])
+  })
+
+  it('a header block can move to the front of the bar on phones and take its free space', () => {
+    // Order and Push are per screen size: the menu button first on phones, back in place on wider
+    // screens; the free space before, after or on both sides of a block.
+    const w = mountTab({ block: block('n1', 'heading'), blockType: heading, rootDisplay: 'flex' })
+    const order = w.find('[data-test="style-field-layout.order"]')
+    const push = w.find('[data-test="style-field-layout.push"]')
+    expect(order.exists()).toBe(true)
+    expect(push.exists()).toBe(true)
+    expect(order.text()).toContain('Order')
+    expect(push.text()).toContain('Push')
   })
 
   it('a block at the root of a flex bar (the header, the footer) is that bar’s item', () => {
@@ -686,6 +706,8 @@ describe('As an item', () => {
       'style-field-layout.grow',
       'style-field-layout.shrink',
       'style-field-layout.align_self',
+      'style-field-layout.order',
+      'style-field-layout.push',
     ])
     // A page body's root arranges nothing, so there a root block is no item.
     const inBody = mountTab({ block: block('h1', 'heading'), blockType: heading })
@@ -702,7 +724,11 @@ describe('As an item', () => {
       inGrid
         .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
         .map((el) => el.attributes('data-test')),
-    ).toEqual(['style-field-layout.span', 'style-field-layout.align_self'])
+    ).toEqual([
+      'style-field-layout.span',
+      'style-field-layout.align_self',
+      'style-field-layout.order',
+    ])
   })
 
   it('an untouched parent is a flex column, so its items size themselves as flex items', () => {
@@ -886,7 +912,11 @@ describe('a loop and its card', () => {
     const fields = w
       .findAll('[data-test="layout-group-item"] [data-test^="style-field-"]')
       .map((el) => el.attributes('data-test'))
-    expect(fields).toEqual(['style-field-layout.span', 'style-field-layout.align_self'])
+    expect(fields).toEqual([
+      'style-field-layout.span',
+      'style-field-layout.align_self',
+      'style-field-layout.order',
+    ])
     expect(w.find('[data-test="layout-in-card"]').exists()).toBe(false)
   })
 

@@ -10,6 +10,29 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.103] - 2026-10-13 — Developer Preview
+
+Arrange the header on phones: the menu button can sit before the logo, a block can be pushed or
+centred in the row, and the menu button has a Style section of its own. A phone's open menu is now a
+panel under the header.
+
+### Added
+- **Arrange the header on phones, and style its menu button**: two settings in a block's Layout tab,
+  under **As an item**, both per screen size. **Order** (`layout.order`: First, Default, Last) moves
+  a block to the front or the back of its row, so the menu button can sit before the logo on phones
+  and the links after it on wider screens. **Push** (`layout.push`: None, Space before, Space after,
+  Both sides) gives the row's free space to one side of a block or both; Both sides centres a logo
+  between the button and the icons. A Navigation block's new **Menu button** section styles the
+  button itself: the icon's colour, background, border, corners and **Icon size** (Small, Medium,
+  Large). Settings version 21; StyleCompiler 30.
+
+### Changed
+- **A header's phone menu opens as a panel under the header**: the open menu now drops down over the
+  top of the page, in the header's colour, and the header row stays where it is. Before, it pushed
+  the page down and took the row with it, so blocks after the Navigation block (a search or cart
+  icon) dropped below the list. On phones the free space of the header row now goes after the logo
+  rather than before the menu, which looks the same for a header of a logo, a menu and icons.
+
 ## [1.0.0-beta.102] - 2026-10-12 — Developer Preview
 
 Update Thallo from the admin: on a single server an owner can press Update, and a separate runner

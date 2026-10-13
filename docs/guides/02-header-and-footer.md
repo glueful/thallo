@@ -68,6 +68,32 @@ under **Site › Navigation**, so a change there reaches every place the menu is
 header's `main` menu stops being automatic as soon as the region holds blocks: add a
 **Navigation** block and pick the menu yourself.
 
+## Arrange the header on phones
+
+Under 768px a Navigation block shows as a menu button, the three-line icon. Pressing it opens the
+menu as a panel under the header, in the header's colour, over the top of the page. The header row
+stays where it is.
+
+With nothing set, the row's free space goes after the logo: the logo starts the row, and the menu
+button and anything after it end it. Two settings in a block's **Layout** tab, under **As an
+item**, move things from there. Both are per screen size:
+
+- **Order** — **First** or **Last** moves the block to the front or the back of the row; **Default**
+  puts it back where it sits in the list.
+- **Push** — where the row's free space goes: **Space before** the block pushes it, and what follows
+  it, to the far end; **Space after** keeps it at the start; **Both sides** centres it in the space
+  left; **None** gives it none.
+
+To put the menu button before the logo on phones only: select the Navigation block with the stage
+at mobile width and set **Order** to **First**, then switch the stage to tablet width and set
+**Order** to **Default**. A setting made at mobile width applies to wider screens too until a wider
+one replaces it. To centre the logo between the button and the icons, set the Logo's **Push** to
+**Both sides** the same way.
+
+The button's own look is the Navigation block's **Menu button** section, in its **Style** tab: the
+icon's colour (**Text colour**), **Background**, the border, **Corners**, and **Icon size**
+(Small, Medium or Large). It stays at least 44px square, so it is easy to tap.
+
 ## Set the bar's options
 
 The **Region** tab holds the current region's own settings. **Width** is either **Contained** —

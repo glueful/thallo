@@ -78,8 +78,9 @@ final class ElementCssAliasTest extends AppTestCase
             '.site-header__inner :where(.thallo-block-navigation, thallo-navigation)',
             $css,
         );
+        // The header's phone placement — the free space after the logo — names both forms too.
         self::assertStringContainsString(
-            ':where(.thallo-block-navigation, thallo-navigation):has(',
+            '.site-header__inner:has(.thallo-block-navigation, thallo-navigation)',
             $css,
         );
         self::assertStringContainsString(

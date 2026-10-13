@@ -34,7 +34,7 @@ const PARENT_ONLY: Record<'flex' | 'grid', readonly string[]> = {
   grid: ['layout.columns'],
 }
 const ITEM_ONLY: Record<'flex' | 'grid', readonly string[]> = {
-  flex: ['layout.basis', 'layout.grow', 'layout.shrink'],
+  flex: ['layout.basis', 'layout.grow', 'layout.shrink', 'layout.push'],
   grid: ['layout.span'],
 }
 

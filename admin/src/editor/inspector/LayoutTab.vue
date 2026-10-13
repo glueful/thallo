@@ -305,6 +305,8 @@ const ITEM_PATHS = [
   'layout.grow',
   'layout.shrink',
   'layout.align_self',
+  'layout.order',
+  'layout.push',
 ]
 
 /** The block sits directly in a loop's card: the loop arranges cards, not what is inside them. */
@@ -344,9 +346,18 @@ const parentDisplay = computed(() => {
 
 /** The item rows the parent's mode actually uses; block mode uses none. */
 const itemRows = computed(() => {
-  if (parentDisplay.value === 'grid') return rowsFor(['layout.span', 'layout.align_self'])
+  if (parentDisplay.value === 'grid') {
+    return rowsFor(['layout.span', 'layout.align_self', 'layout.order'])
+  }
   if (parentDisplay.value === 'flex') {
-    return rowsFor(['layout.basis', 'layout.grow', 'layout.shrink', 'layout.align_self'])
+    return rowsFor([
+      'layout.basis',
+      'layout.grow',
+      'layout.shrink',
+      'layout.align_self',
+      'layout.order',
+      'layout.push',
+    ])
   }
   return []
 })

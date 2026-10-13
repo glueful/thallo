@@ -122,6 +122,54 @@ final class RegionRenderingTest extends AppTestCase
         self::assertStringContainsString('js-contact', $html);
     }
 
+    public function testAHeaderBlockCanMoveAndPushPerScreenSizeAndTheMenuButtonTakesItsLook(): void
+    {
+        // The menu button before the logo on phones only, the logo centred in what is left, and the
+        // button drawn large in the accent: settings the Regions page saves through its validator.
+        $choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
+        $menu = $menus->createMenu('header-menu', 'Header');
+        $menus->replaceTree((string) $menu['uuid'], 0, [[
+            'uuid' => \Glueful\Helpers\Utils::generateNanoID(), 'parent_uuid' => null, 'position' => 0,
+            'kind' => 'url', 'entry_uuid' => null, 'url' => '/about', 'labels' => json_encode(['en' => 'About']),
+            'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s'),
+        ]]);
+        $blocks = [
+            ['id' => 'reghdrlogo01', 'type' => 'logo', 'data' => ['size' => 'medium', 'link_home' => true],
+                'settings' => ['style' => ['layout' => [
+                    'push' => ['base' => $choice('both'), 'md' => $choice('none')],
+                ]]]],
+            ['id' => 'reghdrnavi01', 'type' => 'navigation', 'data' => ['menu' => 'header-menu'], 'settings' => [
+                'style' => ['layout' => ['order' => ['base' => $choice('first'), 'md' => $choice('default')]]],
+                'parts' => ['menu_button' => [
+                    'colors' => ['text' => ['type' => 'token', 'value' => 'color.accent']],
+                    'menu_button' => ['size' => $choice('lg')],
+                ]],
+            ]],
+        ];
+        $this->syncBlockStyleDeclarations();
+        try {
+            $clean = $this->container()->get(\Thallo\Core\Content\Regions\RegionValidator::class)
+                ->validate('header', $blocks, []);
+        } catch (\Thallo\Core\Content\Validation\ValidationException $e) {
+            self::fail(json_encode($e->errors()));
+        }
+        self::assertSame($blocks[1]['settings'], $clean['blocks'][1]['settings']);
+
+        $entry = $this->seedBilingualPublishedEntry();
+        $this->regions()->save('header', $clean['blocks'], [], null);
+        $html = $this->renderHome($entry);
+        self::assertSame(1, preg_match('~<div class="(thallo-block thallo-block-logo[^"]*)"~', $html, $logo));
+        self::assertContains('t-push-both', explode(' ', $logo[1]));
+        self::assertContains('md:t-push-none', explode(' ', $logo[1]));
+        self::assertSame(1, preg_match('~<div class="(thallo-block thallo-block-navigation[^"]*)"~', $html, $nav));
+        self::assertContains('t-order-first', explode(' ', $nav[1]));
+        self::assertContains('md:t-order-default', explode(' ', $nav[1]));
+        self::assertSame(1, preg_match('~<summary class="(thallo-block-navigation__hamburger[^"]*)"~', $html, $button));
+        self::assertContains('t-mbsize-lg', explode(' ', $button[1]));
+        self::assertContains('t-fg-accent', explode(' ', $button[1]));
+    }
+
     public function testAnUnstyledRegionRendersExactlyTheClassesItAlwaysHad(): void
     {
         $entry = $this->seedBilingualPublishedEntry();

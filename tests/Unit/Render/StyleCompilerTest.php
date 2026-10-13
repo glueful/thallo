@@ -699,6 +699,44 @@ final class StyleCompilerTest extends TestCase
         self::assertStringContainsString('.md\\:t-mpad-sm { padding: var(--t-spacing-sm); }', $css);
     }
 
+    public function testAnItemsOrderMovesItToTheFrontOrBackOfItsRow(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-order-first', ClassNames::for('layout.order', 'first'));
+        self::assertStringContainsString('.t-order-first { order: -1; }', $css);
+        self::assertStringContainsString('.t-order-default { order: 0; }', $css);
+        self::assertStringContainsString('.t-order-last { order: 1; }', $css);
+        // Per screen size: first on phones, back in place from md.
+        self::assertStringContainsString('.md\\:t-order-default { order: 0; }', $css);
+        self::assertStringContainsString('.t-order-reset { order: revert-layer; }', $css);
+    }
+
+    public function testAnItemsPushGivesTheRowsFreeSpaceToOneSideOrBoth(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-push-before', ClassNames::for('layout.push', 'before'));
+        self::assertStringContainsString('.t-push-none { margin-inline: 0; }', $css);
+        self::assertStringContainsString('.t-push-before { margin-inline: auto 0; }', $css);
+        self::assertStringContainsString('.t-push-after { margin-inline: 0 auto; }', $css);
+        self::assertStringContainsString('.t-push-both { margin-inline: auto; }', $css);
+        self::assertStringContainsString('.lg\\:t-push-none { margin-inline: 0; }', $css);
+        // It writes the property Placement (alignment.self) writes, and comes after it, so on a block
+        // with both the push wins.
+        self::assertGreaterThan(strpos($css, '.t-aself-start'), strpos($css, '.t-push-none'));
+        self::assertGreaterThan(strpos($css, '.t-self-start'), strpos($css, '.t-push-none'));
+    }
+
+    public function testAMenuButtonsSizeSetsItsIconSize(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-mbsize-lg', ClassNames::for('menu_button.size', 'lg'));
+        self::assertStringContainsString('.t-mbsize-sm { --thallo-menu-icon: 1rem; }', $css);
+        self::assertStringContainsString('.t-mbsize-md { --thallo-menu-icon: 1.375rem; }', $css);
+        self::assertStringContainsString('.t-mbsize-lg { --thallo-menu-icon: 1.75rem; }', $css);
+        // One value for every width.
+        self::assertStringNotContainsString('md\\:t-mbsize', $css);
+    }
+
     public function testAFeaturesAlignmentCompilesToAlignItems(): void
     {
         $css = StyleCompiler::compile($this->vocabulary());
