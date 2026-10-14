@@ -5,7 +5,10 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
+
+Updating from the admin without the setup: where PHP-FPM can write the site's code, the same thing
+installing extensions needs, the Update button needs only `THALLO_ADMIN_UPDATES=true` and a provision.
 
 ### Added
 - **Updating from the admin in simple mode**: where PHP-FPM can write the site's code — what

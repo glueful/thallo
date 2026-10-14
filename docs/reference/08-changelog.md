@@ -10,6 +10,30 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
+
+Updating from the admin without the setup: where PHP-FPM can write the site's code, the same thing
+installing extensions needs, the Update button needs only `THALLO_ADMIN_UPDATES=true` and a provision.
+
+### Added
+- **Updating from the admin in simple mode**: where PHP-FPM can write the site's code — what
+  installing extensions from the admin already needs — turning it on is `THALLO_ADMIN_UPDATES=true`
+  and `php glueful thallo:provision`. Thallo detects it from what PHP-FPM can write. Pressing
+  **Update** starts the runner in the background from PHP-FPM, as the extension store runs
+  Composer, so there is no cron line, no restart to confirm, no deploy user and no folder modes.
+  PHP-FPM can already write the code on such a server, so the separation those steps enforce
+  protected nothing there. The backup, the closed site during the
+  swap and the automatic rollback stay. The release is checked from PHP-FPM through `BASE_URL`
+  when it can be reached, from the command line otherwise. Servers with a separate web user keep
+  the cron runner and every check. Provision now also adds the update guard's include to
+  `public/index.php` and `glueful` on installs made before 1.0.0-beta.102.
+
+### Fixed
+- **A second PHP-FPM on the server no longer blocks `confirm-restart`**: with a separate web user,
+  the restart check counted every PHP-FPM on the server, so one serving something else, such as a
+  control panel's own, held it back until restarted. It now counts only the PHP-FPM that answers
+  for the site and that PHP-FPM's workers, and every PHP-FPM when that one cannot be told apart.
+
 ## [1.0.0-beta.105] - 2026-10-13 — Developer Preview
 
 Phones and tablets: a page designed on Desktop keeps its spacing and columns on smaller screens, a
