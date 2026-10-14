@@ -17,6 +17,10 @@ as the next release, never a mutated tag.
   (Colour on Mobile, None on Desktop); the colour is one for every size. Settings version 23;
   StyleCompiler 32.
 
+### Fixed
+- **The search results page on a phone**: `/search` has a side gutter, as the shop's pages do. On a
+  phone the heading, field and results ran to the screen's edges.
+
 ## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
 
 Updating from the admin without the setup: where PHP-FPM can write the site's code, the same thing
