@@ -87,7 +87,7 @@ final class UpdatePreflightTest extends TestCase
     }
 
     /**
-     * Simple mode: PHP-FPM runs as the user that owns the code (CloudPanel and most control panels), so
+     * Simple mode: PHP-FPM runs as the user that owns the code (any host where the extension store can install), so
      * it can write the code and the private update folder. Separating the two users protects nothing
      * there: no cron runner, no restart confirmation, no folder modes, and PHP-FPM itself checks the
      * server. A cron runner's report, if one still runs, is not read.

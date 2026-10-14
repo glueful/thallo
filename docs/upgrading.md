@@ -155,15 +155,17 @@ For owners who run one server and would rather press **Update** than open a term
 When it is on, an **update runner** does the update as the user that owns the code; PHP-FPM
 checks, files the request and shows progress.
 
-How you turn it on depends on which user PHP-FPM runs as:
+How you turn it on depends on one thing: whether PHP-FPM can write your site's code. That is
+what installing extensions from the admin already needs, so if the extension store installs
+packages on your server, so does the update.
 
-- **The same user that owns the code** — CloudPanel, most hosting control panels, shared hosting.
-  This is **simple mode**: one setting, no cron line.
-- **A separate web user** (`www-data`) with the code owned by a deploy user. The runner runs from
-  cron as the deploy user, and PHP-FPM cannot change the code itself.
+- **PHP-FPM can write the code** (it runs as the user that owns the site): **simple mode**. One
+  setting and a provision, no cron line.
+- **PHP-FPM cannot** (a web user such as `www-data` serving code a deploy user owns): the runner
+  runs from cron as the deploy user, and the setup below keeps the two users apart.
 
-Thallo tells them apart on its own: simple mode is when PHP-FPM can write `vendor/` and the private
-update folder.
+Thallo tells them apart on its own, from what PHP-FPM can write: `vendor/` and the private update
+folder.
 
 ### Turning it on in simple mode
 

@@ -8,22 +8,23 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
-- **Updating from the admin in simple mode**: where PHP-FPM runs as the user that owns the code
-  (CloudPanel, most hosting control panels), turning it on is `THALLO_ADMIN_UPDATES=true` and
-  `php glueful thallo:provision`. Pressing **Update** starts the runner in the background from
-  PHP-FPM, as the extension store runs Composer, so there is no cron line, no restart to confirm, no
-  deploy user and no folder modes. PHP-FPM can already write the code on such a server, so the
-  separation those steps enforce protected nothing there. The backup, the closed site during the
+- **Updating from the admin in simple mode**: where PHP-FPM can write the site's code — what
+  installing extensions from the admin already needs — turning it on is `THALLO_ADMIN_UPDATES=true`
+  and `php glueful thallo:provision`. Thallo detects it from what PHP-FPM can write. Pressing
+  **Update** starts the runner in the background from PHP-FPM, as the extension store runs
+  Composer, so there is no cron line, no restart to confirm, no deploy user and no folder modes.
+  PHP-FPM can already write the code on such a server, so the separation those steps enforce
+  protected nothing there. The backup, the closed site during the
   swap and the automatic rollback stay. The release is checked from PHP-FPM through `BASE_URL`
   when it can be reached, from the command line otherwise. Servers with a separate web user keep
   the cron runner and every check. Provision now also adds the update guard's include to
   `public/index.php` and `glueful` on installs made before 1.0.0-beta.102.
 
 ### Fixed
-- **CloudPanel's own PHP-FPM no longer blocks `confirm-restart`**: the restart check counted every
-  PHP-FPM on the server, so the control panel's PHP-FPM, started before the guard, held it back. It
-  now counts only the PHP-FPM that answers for the site and that PHP-FPM's workers, and every PHP-FPM
-  when that one cannot be told apart.
+- **A second PHP-FPM on the server no longer blocks `confirm-restart`**: with a separate web user,
+  the restart check counted every PHP-FPM on the server, so one serving something else, such as a
+  control panel's own, held it back until restarted. It now counts only the PHP-FPM that answers
+  for the site and that PHP-FPM's workers, and every PHP-FPM when that one cannot be told apart.
 
 ## [1.0.0-beta.105] - 2026-10-13 — Developer Preview
 
