@@ -91,8 +91,9 @@ one replaces it. To centre the logo between the button and the icons, set the Lo
 **Both sides** the same way.
 
 The button's own look is the Navigation block's **Menu button** section, in its **Style** tab: the
-icon's colour (**Text colour**), **Background**, the border, **Corners**, and **Icon size**
-(Small, Medium or Large). It stays at least 44px square, so it is easy to tap.
+icon's colour (**Text colour**), **Background**, the border, **Corners**, **Icon size** (Small,
+Medium or Large) and **Padding**, the room between the icon and the button's edge, per side and per
+screen size. It stays at least 44px square, so it is easy to tap.
 
 ## Set the bar's options
 

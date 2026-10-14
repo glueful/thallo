@@ -5,6 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Padding for the menu button**: the Navigation block's **Menu button** section has **Padding**,
+  per side and per screen size, the room between the bars and the button's edge. Unset sides keep
+  the theme's. A provision adds it to existing Navigation block types.
+
 ## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
 
 Updating from the admin without the setup: where PHP-FPM can write the site's code, the same thing

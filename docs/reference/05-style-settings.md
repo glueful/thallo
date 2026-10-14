@@ -413,14 +413,17 @@ only while that content field has that value.
 ### Menu button
 
 A Navigation block's **Menu button** section styles the button a phone shows: Text colour (the
-icon), Background, Border colour, the border, Corners, and its icon size (settings version 21).
+icon), Background, Border colour, the border, Corners, its icon size (settings version 21), and
+Padding, the same per-side, per-width padding as any block's (`t-pt-*`, `t-pr-*`, `t-pb-*`, `t-pl-*`
+on the button).
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
 | Icon size | `menu_button.size` | no | `t-mbsize-{sm,md,lg}` | `--thallo-menu-icon:` `sm` 1rem, `md` 1.375rem, `lg` 1.75rem |
 
 The default theme draws the icon at 1.125rem until a size is set; the bars and the gaps between them
-grow with it. The button stays at least 44px square.
+grow with it. The button stays at least 44px square. Its padding is the theme's (`--space-2` above
+and below, `--space-3` at the sides) on any side not set.
 
 ### Overlay
 
