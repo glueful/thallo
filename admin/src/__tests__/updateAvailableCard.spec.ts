@@ -83,4 +83,18 @@ describe('UpdateAvailableCard', () => {
     expect(reasons.text()).toContain(REASON_TEXT.guard_missing)
     expect(wrapper.find('[data-testid="update-available-start"]').exists()).toBe(false)
   })
+
+  it('has a sentence for simple mode’s own refusal: the runner cannot be started', () => {
+    const preflight = {
+      ready: false,
+      current: '1.0.0-beta.21',
+      target: '1.0.0-beta.22',
+      reasons: ['launch_unavailable'],
+    }
+    const wrapper = mount(UpdateAvailableCard, { props: { status, preflight } })
+    expect(REASON_TEXT.launch_unavailable).toBeTruthy()
+    expect(wrapper.find('[data-testid="update-available-reasons"]').text()).toContain(
+      REASON_TEXT.launch_unavailable,
+    )
+  })
 })

@@ -40,6 +40,39 @@ final class UpdaterInstallerTest extends TestCase
         self::assertStringContainsString('v2', (string) file_get_contents($this->base . '/bootstrap/update-guard.php'));
     }
 
+    /**
+     * An install made before the guard existed has entry points without its include. Provision adds it,
+     * right after the declare line — before anything loads vendor/ — and only once.
+     */
+    public function testTheGuardIsIncludedByEntryPointsThatPredateIt(): void
+    {
+        mkdir($this->base . '/public');
+        $index = "<?php\n\ndeclare(strict_types=1);\n\nuse Symfony\\Component\\HttpFoundation\\Request;\n\n"
+            . "\$app = require_once __DIR__ . '/../bootstrap/app.php';\n";
+        file_put_contents($this->base . '/public/index.php', $index);
+        $console = "#!/usr/bin/env php\n<?php\n\nrequire __DIR__ . '/vendor/autoload.php';\n";
+        file_put_contents($this->base . '/glueful', $console);
+        chmod($this->base . '/glueful', 0755);
+
+        $i = new UpdaterInstaller();
+        self::assertSame(['public/index.php', 'glueful'], $i->includeGuard($this->base));
+        self::assertSame([], $i->includeGuard($this->base), 'once');
+
+        $patched = (string) file_get_contents($this->base . '/public/index.php');
+        $guard = strpos($patched, "require __DIR__ . '/../bootstrap/update-guard.php';");
+        self::assertNotFalse($guard);
+        self::assertGreaterThan(strpos($patched, 'declare(strict_types=1);'), $guard);
+        self::assertLessThan(strpos($patched, 'use Symfony'), $guard);
+        $cli = (string) file_get_contents($this->base . '/glueful');
+        self::assertStringStartsWith("#!/usr/bin/env php\n<?php\n", $cli);
+        self::assertLessThan(strpos($cli, 'vendor/autoload.php'), strpos($cli, "'/bootstrap/update-guard.php'"));
+        self::assertSame('0755', substr(sprintf('%o', fileperms($this->base . '/glueful')), -4));
+        foreach (['public/index.php', 'glueful'] as $file) {
+            exec(escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($this->base . '/' . $file), $out, $code);
+            self::assertSame(0, $code, $file . ' still parses');
+        }
+    }
+
     public function testDisabledRemovesThemUnlessRecoveryNeedsThem(): void
     {
         $i = new UpdaterInstaller();

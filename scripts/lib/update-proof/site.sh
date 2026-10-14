@@ -40,6 +40,7 @@ up_init() {
   export PGHOST="${DB_PGSQL_HOST:-127.0.0.1}" PGPORT="${DB_PGSQL_PORT:-5432}" PGUSER="$DB_PGSQL_USERNAME" PGPASSWORD="$DB_PGSQL_PASSWORD"
   SINGLE_USER="${UPDATE_PROOF_SINGLE_USER:-$([[ "$(uname)" == "Darwin" ]] && echo 1 || echo 0)}"
   DEPLOY_USER="${UPDATE_PROOF_DEPLOY_USER:-thallo-deploy}"
+  WEB_POOL_USER=www-data
   SITE="$WORK/site"; REPO="$WORK/repo"; ART="$WORK/artifacts"
   chmod 755 "$WORK"
   # Markers the code owner's processes leave for the harness ($WORK is root's in CI).
@@ -159,6 +160,7 @@ up_snapshot() {
 
 up_restore() {
   up_web_stop
+  WEB_POOL_USER=www-data
   rm -rf "$SITE"; tar -C "$WORK" -xf "$WORK/site.tar"
   up_permissions
   db_reset
@@ -186,7 +188,7 @@ process_control_timeout = 120
 listen = 127.0.0.1:$FCGI_PORT
 pm = static
 pm.max_children = 4
-$( [[ "$SINGLE_USER" == 1 ]] || printf 'user = www-data\ngroup = thallo-site\n' )
+$( [[ "$SINGLE_USER" == 1 ]] || printf 'user = %s\ngroup = thallo-site\n' "$WEB_POOL_USER" )
 php_admin_value[opcache.enable] = 1
 php_admin_value[opcache.validate_timestamps] = 1
 php_admin_value[opcache.revalidate_freq] = 2
@@ -261,6 +263,14 @@ up_web_stop() {
     rm -f "$WORK/fcgi.pid"
   fi
   sleep 0.3
+}
+
+# Simple mode: PHP-FPM runs as the code owner (with one user it already does).
+web_as_owner() {
+  [[ "$SINGLE_USER" == 1 ]] && return 0
+  [[ "$FASTCGI" == fpm ]] || { up_log "simple mode with two users needs PHP-FPM (PHP_FPM_BIN)"; return 1; }
+  WEB_POOL_USER="$DEPLOY_USER"
+  fpm_restart
 }
 
 # A full PHP-FPM / FastCGI restart: graceful stop, every old process gone, a new instance (scenarios 20, 23).

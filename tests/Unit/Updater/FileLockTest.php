@@ -50,4 +50,29 @@ final class FileLockTest extends TestCase
             exec('chmod -R u+w ' . escapeshellarg($dir) . ' && rm -rf ' . escapeshellarg($dir));
         }
     }
+
+    /**
+     * A request's admission lock stays with the request. A process it starts in the background — the
+     * update runner, in simple mode — must not keep it, or the runner's barrier waits on itself.
+     */
+    public function testASharedLockIsNotKeptByAProcessStartedInTheBackground(): void
+    {
+        $dir = sys_get_temp_dir() . '/thallo-lock-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        $path = "{$dir}/admission.lock";
+        touch($path);
+        try {
+            $h = FileLock::shared($path);
+            self::assertIsResource($h);
+            $null = ['file', '/dev/null', 'w'];
+            $quiet = [0 => ['file', '/dev/null', 'r'], 1 => $null, 2 => $null];
+            proc_close(proc_open(['/bin/sh', '-c', 'nohup sleep 3 >/dev/null 2>&1 &'], $quiet, $pipes));
+            fclose($h); // as the end of a request lets go of it: closed, never explicitly unlocked
+            $x = FileLock::exclusive($path, false);
+            self::assertNotNull($x, 'the background process holds no share of the lock');
+            FileLock::release($x);
+        } finally {
+            exec('rm -rf ' . escapeshellarg($dir));
+        }
+    }
 }

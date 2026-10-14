@@ -9,6 +9,7 @@ use Thallo\Core\Http\Controllers\AdminUpdateController;
 use Thallo\Core\Http\DTOs\StartUpdateData;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Core\Updater\Paths;
+use Thallo\Core\Updates\RunnerLauncher;
 use Thallo\Core\Updates\UpdatePreflight;
 
 /**
@@ -28,6 +29,7 @@ final class AdminUpdateApiTest extends AppTestCase
 
     protected function tearDown(): void
     {
+        @chmod($this->base . '/vendor', 0755);
         exec('rm -rf ' . escapeshellarg($this->base));
         parent::tearDown();
     }
@@ -105,9 +107,55 @@ final class AdminUpdateApiTest extends AppTestCase
         self::assertSame(409, $controller->cancel()->getStatusCode(), 'a claimed update cannot be cancelled');
     }
 
+    /** Simple mode: PHP-FPM owns the code, so Update files the request and starts the runner at once. */
+    public function testSimpleModeStartsTheRunnerForTheRequest(): void
+    {
+        $launches = [];
+        $controller = $this->simpleController(static function (array $argv) use (&$launches): bool {
+            $launches[] = $argv;
+            return true;
+        });
+        $response = $controller->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
+        self::assertSame(202, $response->getStatusCode());
+        self::assertFileExists($this->base . '/storage/framework/updates/start.json');
+        self::assertCount(1, $launches);
+        self::assertStringContainsString('thallo-updater', $launches[0][2]);
+    }
+
+    public function testSimpleModeWithdrawsTheRequestWhenTheRunnerCannotStart(): void
+    {
+        $controller = $this->simpleController(static fn (): bool => false);
+        $response = $controller->start(new StartUpdateData('1.0.0-beta.102'), $this->owner('1.0.0-beta.102'));
+        self::assertSame(409, $response->getStatusCode());
+        self::assertSame(['launch_unavailable'], $this->reasons($response));
+        self::assertFileDoesNotExist($this->base . '/storage/framework/updates/start.json');
+    }
+
     private function controller(bool $ready): AdminUpdateController
     {
         return new AdminUpdateController($this->preflight($ready), new Paths($this->base));
+    }
+
+    private function simpleController(\Closure $spawn): AdminUpdateController
+    {
+        $this->preflight(true); // lays the site out
+        chmod($this->base . '/vendor', 0777);
+        mkdir($this->base . '/.thallo-update', 0700);
+        mkdir($this->base . '/bin');
+        file_put_contents($this->base . '/bin/thallo-updater', '<?php');
+        $report = static fn (): array => ['checked_at' => time(), 'writable' => true, 'composer_ok' => true,
+            'shape_problems' => [], 'pg_dump' => true, 'pg_restore' => true, 'free_bytes' => 10, 'needed_bytes' => 1];
+        $preflight = new UpdatePreflight(
+            ['enabled' => true],
+            ['current' => '1.0.0-beta.101', 'latest' => '1.0.0-beta.102', 'available' => true],
+            $this->base,
+            static fn (string $k): string => in_array($k, ['opcache.enable', 'opcache.validate_timestamps'], true)
+                ? '1' : '',
+            static fn (): string => 'fpm-fcgi',
+            static fn (): int => time(),
+            new RunnerLauncher($this->base, 'php', null, $spawn, $report),
+        );
+        return new AdminUpdateController($preflight, new Paths($this->base));
     }
 
     /** @return list<string> */

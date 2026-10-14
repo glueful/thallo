@@ -18,6 +18,12 @@ final class FakeHost implements Host
     public int $restartExit = 0;
     public ?\Closure $onProvision = null;
     public int $clock = 1_000;
+    /** What `ps -eo pid=,ppid=,etime=,user=,args=` prints; empty: no old processes are visible. */
+    public string $ps = '';
+    /** The PHP-FPM master the probe reports. */
+    public ?int $fpmMaster = null;
+    /** PHP-FPM cannot be reached over HTTP. */
+    public bool $webDown = false;
 
     public function __construct(
         private readonly string $base,
@@ -84,7 +90,7 @@ final class FakeHost implements Host
         $joined = implode(' ', $argv);
         return match (true) {
             $argv[0] === 'pgrep' => [1, ''],
-            $argv[0] === 'ps' => [0, ''],
+            $argv[0] === 'ps' => [0, $this->ps],
             str_contains($joined, '--estimate') => [0, '{"database_bytes":1000}'],
             str_contains($joined, 'composer') && str_contains($joined, '--version')
                 => [0, 'Composer version 2.8.4 2024-12-11'],
@@ -96,10 +102,14 @@ final class FakeHost implements Host
 
     public function http(string $url, array $headers, string $body): array
     {
+        if ($this->webDown) {
+            return [0, ''];
+        }
         $mode = json_decode($body, true)['mode'] ?? '';
         return [200, (string) json_encode($mode === 'probe'
             ? [
                 'sapi' => 'fpm-fcgi',
+                'fpm_master' => $this->fpmMaster,
                 'writable_code' => false,
                 'admission_ok' => true,
                 'state_writable' => true,

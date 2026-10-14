@@ -31,6 +31,17 @@ publish_latest() {
 preflight_json() { curl -s -H "Authorization: Bearer $1" "http://127.0.0.1:$PORT/v1/admin/updates/preflight"; }
 json_get() { "$PHP_BIN" -r '$v=json_decode(stream_get_contents(STDIN),true); foreach(explode(".",$argv[1]) as $k){ $v=$v[$k]??null; } echo is_scalar($v)?var_export($v,true):json_encode($v);' "$1"; }
 
+# start_from_admin <bearer>: preflight ready for $TARGET_V, then the admin's Update; the token in $WORK/token.
+start_from_admin() {
+  local pre; pre="$(preflight_json "$1")"
+  [[ "$(json_get data.preflight.ready <<<"$pre")" == true ]] || { up_log "$pre"; return 1; }
+  [[ "$(json_get data.preflight.target <<<"$pre")" == "'$TARGET_V'" ]] || { up_log "$pre"; return 1; }
+  local started; started="$(curl -s -o "$WORK/start.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $1" \
+    -H 'Content-Type: application/json' -d "{\"target\":\"$TARGET_V\"}" "http://127.0.0.1:$PORT/v1/admin/updates")"
+  [[ "$started" == 202 ]] || { cat "$WORK/start.json" >&2; return 1; }
+  json_get data.update.token < "$WORK/start.json" | tr -d "'" > "$WORK/token"
+}
+
 # Every file of the site with its hash, runner-owned paths excluded (scenario 18).
 site_manifest() {
   (cd "$SITE" && "$PHP_BIN" -r '
@@ -57,19 +68,9 @@ sc_1() { # Successful update, through the advertised path.
   fi
   local bearer; bearer="$(owner_token)"; [[ -n "$bearer" ]] || { up_log "login gave no token"; return 1; }
   up_repo_add target 901; tick
-  local pre; pre="$(preflight_json "$bearer")"
-  if [[ "$SINGLE_USER" == 1 ]]; then
-    [[ "$(json_get data.preflight.reasons <<<"$pre")" == '["web_can_write_code"]' ]] || { up_log "$pre"; return 1; }
-    request "$TARGET_V"
-  else
-    publish_latest "$TARGET_V"; pre="$(preflight_json "$bearer")"
-    [[ "$(json_get data.preflight.ready <<<"$pre")" == true ]] || { up_log "$pre"; return 1; }
-    [[ "$(json_get data.preflight.target <<<"$pre")" == "'$TARGET_V'" ]] || { up_log "$pre"; return 1; }
-    local started; started="$(curl -s -o "$WORK/start.json" -w '%{http_code}' -X POST -H "Authorization: Bearer $bearer" \
-      -H 'Content-Type: application/json' -d "{\"target\":\"$TARGET_V\"}" "http://127.0.0.1:$PORT/v1/admin/updates")"
-    [[ "$started" == 202 ]] || { cat "$WORK/start.json" >&2; return 1; }
-    json_get data.update.token < "$WORK/start.json" | tr -d "'" > "$WORK/token"
-  fi
+  # With one user PHP-FPM owns the code: simple mode, whose own proof is scenario 26.
+  publish_latest "$TARGET_V"
+  start_from_admin "$bearer" || return 1
   tick_until succeeded || return 1
   version_is "$TARGET_V" && web_version_is "$TARGET_V" && table_exists update_proof && site_open || return 1
   curl -s "http://127.0.0.1:$PORT/admin/" | grep -q 'update-proof 901' || { up_log "admin bundle not republished"; return 1; }
@@ -412,6 +413,7 @@ reenable() { # turn admin updates off (guard removed) then on again, as an owner
 }
 
 sc_20() { # Readiness at first enablement: a worker from before the guard, then a guarded idle worker.
+  [[ "$SINGLE_USER" == 1 ]] && { up_log "SKIP 20: with one user the site is in simple mode, which has no restart readiness (CI runs it)"; return 0; }
   reenable supervise_worker || return 1
   local old; old="$(worker_pid)"; sleep 2
   tick
@@ -468,6 +470,7 @@ start_pre_guard_writers() { # a request and a console process that write after 2
 }
 
 sc_23() { # Readiness: a pre-guard request and a console writer outlive any delay; neither writes after the backup.
+  [[ "$SINGLE_USER" == 1 ]] && { up_log "SKIP 23: with one user the site is in simple mode, which has no restart readiness (CI runs it)"; return 0; }
   slow_request_file
   reenable start_pre_guard_writers || return 1
   sleep 10
@@ -607,4 +610,21 @@ sc_25() { # Enabling from scratch while PHP-FPM already runs as the web user: th
   tick
   [[ "$("$PHP_BIN" -r 'echo json_encode(json_decode(file_get_contents($argv[1]), true)["layout_problems"] ?? null);' \
     "$SITE/.thallo-update-control/runner.json")" == '[]' ]] || { up_log "the runner reports layout problems"; cat "$SITE/.thallo-update-control/runner.json" >&2; return 1; }
+}
+
+# ---- simple mode (docs/upgrading.md): PHP-FPM is the code owner ---------------------------------------
+
+sc_26() { # Simple mode: no cron and no restart confirmation; the admin's Update starts the runner itself.
+  web_as_owner || return 1
+  rm -f "$SITE/.thallo-update/guard.ready" # never confirmed: simple mode does not ask
+  local bearer; bearer="$(owner_token)"; [[ -n "$bearer" ]] || { up_log "login gave no token"; return 1; }
+  up_repo_add target 901; publish_latest "$TARGET_V"
+  start_from_admin "$bearer" || return 1
+  # No tick from here: the runner PHP-FPM started does the whole update.
+  for _ in $(seq 1 240); do
+    [[ "$(op_field status)" == succeeded ]] && break
+    sleep 1
+  done
+  status_is succeeded || return 1
+  version_is "$TARGET_V" && web_version_is "$TARGET_V" && table_exists update_proof && site_open
 }

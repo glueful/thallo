@@ -104,6 +104,8 @@ export const REASON_TEXT: Record<string, string> = {
   restart_required:
     'Restart PHP-FPM and every worker, then confirm with php bin/thallo-updater confirm-restart --yes.',
   no_update: 'There is no newer version to install.',
+  launch_unavailable:
+    'PHP-FPM cannot start the update runner (bin/thallo-updater missing, or proc_open disabled). Run php glueful thallo:provision, or update from the terminal.',
 }
 
 /** Null on 403: updating from here is not this user's to run, so the notice stays as it was. */
