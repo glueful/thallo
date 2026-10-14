@@ -193,7 +193,10 @@ php_admin_value[opcache.enable] = 1
 php_admin_value[opcache.validate_timestamps] = 1
 php_admin_value[opcache.revalidate_freq] = 2
 CONF
-    "$PHP_FPM_BIN" -y "$WORK/fpm.conf" -F >"$WORK/fpm.out" 2>&1 &
+    # JIT off, at startup: the proof is of the update, not of PHP's JIT. GitHub's PHP setup turns the
+    # tracing JIT on, and there its workers segfaulted inside the JIT buffer while booting the swapped
+    # release (2026-10-14), which the same PHP 8.4.26 off GitHub, arm64 or amd64, never did.
+    "$PHP_FPM_BIN" -d opcache.jit=disable -y "$WORK/fpm.conf" -F >"$WORK/fpm.out" 2>&1 &
     echo $! > "$WORK/fcgi.pid"
   fi
   mkdir -p "$WORK/nginx/tmp"

@@ -55,6 +55,11 @@ for n in "${SCENARIOS[@]}"; do
       [[ -s "$f" ]] && { up_log "== $f"; tail -30 "$f" >&2; }
     done
     up_log "== FastCGI processes"; pgrep -a -f 'php-fpm|php-cgi' >&2 || up_log "(none)"
+    if [[ -n "${PHP_FPM_BIN:-}" ]]; then
+      up_log "== PHP-FPM build"
+      "$PHP_FPM_BIN" -i 2>/dev/null | grep -E '^(PHP Version|opcache\.(enable|jit|memory_consumption)) ' >&2 || true
+      "$PHP_FPM_BIN" -m 2>/dev/null | tr '\n' ' ' >&2; echo >&2
+    fi
     up_log "== kernel"; dmesg 2>/dev/null | grep -iE 'oom|killed process|segfault|php' | tail -10 >&2 || true
     failed=1
     break
