@@ -25,7 +25,7 @@ export const CHOICE_LABELS: Record<string, Record<string, string>> = {
   // Where the row's free space goes: before the block pushes it, and what follows it, to the end.
   'layout.push': { none: 'None', before: 'Space before', after: 'Space after', both: 'Both sides' },
   'menu_button.size': { sm: 'Small', md: 'Medium', lg: 'Large' },
-  'overlay.tone': words(['none', 'light', 'dark']),
+  'overlay.tone': { none: 'None', light: 'Light', dark: 'Dark', color: 'Colour' },
   'overlay.opacity': percent(['25', '50', '75']),
   'hover.opacity': percent(['100', '90', '80', '70', '60', '50']),
   'motion.entrance': words([

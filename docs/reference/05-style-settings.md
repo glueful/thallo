@@ -428,18 +428,24 @@ and below, `--space-3` at the sides) on any side not set.
 ### Overlay
 
 A Container's **Overlay** section: the layer over its background image or video, per screen size
-(settings version 22). Dark on Mobile and None on Desktop darkens a photo behind text on a phone
-only.
+(settings version 22), and the colour it takes when set to **Colour** (settings version 23). Dark on
+Mobile and None on Desktop darkens a photo behind text on a phone only.
 
 | Setting | Path | Responsive | Class | Declaration |
 |---|---|---|---|---|
-| Overlay | `overlay.tone` | yes | `t-ovtone-{none,light,dark}` | `--thallo-overlay-bg:` `none` transparent, `light` #fff, `dark` #000 |
+| Overlay | `overlay.tone` | yes | `t-ovtone-{none,light,dark,color}` | `--thallo-overlay-bg:` `none` transparent, `light` #fff, `dark` #000, `color` the Overlay colour |
 | Overlay opacity | `overlay.opacity` | yes | `t-ovopacity-{25,50,75}` | `--thallo-overlay-opacity:` 0.25, 0.5, 0.75 |
+| Overlay colour | `overlay.color` | no | `t-ovcolor-{color}` | `--thallo-overlay-color:` the palette colour |
 
 The layer covers the whole container, its padding included. The block's own **Overlay** and
 **Overlay opacity** fields (Content tab, Background) still apply, at every size: where a size has
 a value here, this one wins. With an Overlay and no opacity, the strength is 50%. A container never
 takes the overlay of the one around it.
+
+**Overlay colour** is any colour of the site's palette, your Brand colours included: for a colour
+the palette does not have, add it as a Brand colour in **Appearance**, with its hex value. It is one
+colour for every size, like every colour setting, and shows at the sizes where Overlay is
+**Colour**. Overlay set to Colour with no colour chosen draws nothing.
 
 ### Tabs
 

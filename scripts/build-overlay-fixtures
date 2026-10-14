@@ -8,7 +8,8 @@
  * Containers, by id: `ovfield` — the Overlay field alone (dark, 75); `ovstyle` — the Style tab's
  * overlay alone, dark at 50 on phones and none from lg; `ovboth` — the field dark, the style none
  * from lg; `ovnest` — a container with no overlay of its own inside the `ovfield` one, light from
- * md only.
+ * md only; `ovcolor` — the Style tab's overlay set to Colour, the palette's accent; `ovcolornest` — a
+ * container inside it set to Colour with no colour of its own.
  *
  *   CACHE_DRIVER=array DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/build-overlay-fixtures
  */
@@ -74,6 +75,7 @@ final class OverlayFixtureWritten extends RuntimeException
 $container->get(StarterBlockTypeSeeder::class)->seedMissing();
 
 $choice = static fn (string $v): array => ['type' => 'choice', 'value' => $v];
+$tok = static fn (string $v): array => ['type' => 'token', 'value' => $v];
 $text = static fn (string $id, string $words): array => ['id' => $id, 'type' => 'rich_text',
     'data' => ['body' => "<p>{$words}</p>"], 'settings' => []];
 $box = static fn (string $id, array $data, array $style, array $content): array => ['id' => $id,
@@ -94,6 +96,12 @@ $body = [
     $box('ovboth', ['overlay' => 'dark', 'overlay_opacity' => '50'], ['overlay' => [
         'tone' => ['lg' => $choice('none')],
     ]], [$text('ovbothtxt', 'The field dark, the style none from lg.')]),
+    $box('ovcolor', [], ['overlay' => ['tone' => ['base' => $choice('color')], 'color' => $tok('color.accent')]], [
+        $text('ovcolortxt', 'Colour, the accent.'),
+        $box('ovcolornest', [], ['overlay' => ['tone' => ['base' => $choice('color')]]], [
+            $text('ovcolornesttxt', 'Colour inside it, none of its own.'),
+        ]),
+    ]),
 ];
 
 try {
@@ -114,7 +122,7 @@ try {
             throw new RuntimeException("/landing/page answered {$response->getStatusCode()}");
         }
         $html = (string) $response->getContent();
-        if (!str_contains($html, 'lg:t-ovtone-none')) {
+        if (!str_contains($html, 'lg:t-ovtone-none') || !str_contains($html, 't-ovcolor-accent')) {
             throw new RuntimeException('the page does not carry the overlay settings');
         }
         file_put_contents($out . '/page.html', $selfContained($html));

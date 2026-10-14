@@ -11,6 +11,11 @@ as the next release, never a mutated tag.
 - **Padding for the menu button**: the Navigation block's **Menu button** section has **Padding**,
   per side and per screen size, the room between the bars and the button's edge. Unset sides keep
   the theme's. A provision adds it to existing Navigation block types.
+- **A Container's overlay in any colour**: the Style tab's **Overlay** gains **Colour**, and the
+  section an **Overlay colour**, any colour of the site's palette, Brand colours included, so a
+  colour the palette lacks is added in Appearance with its hex value. Overlay stays per screen size
+  (Colour on Mobile, None on Desktop); the colour is one for every size. Settings version 23;
+  StyleCompiler 32.
 
 ## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
 

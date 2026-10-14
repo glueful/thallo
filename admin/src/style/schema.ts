@@ -219,8 +219,10 @@ const PROPERTIES: PropertyDefinition[] = [
   choice('layout.push', 'layout.item', true, ['none', 'before', 'after', 'both']),
   choice('menu_button.size', 'menu_button', false, ['sm', 'md', 'lg']),
   // Settings version 22: a Container's overlay over its background, per screen size.
-  choice('overlay.tone', 'overlay', true, ['none', 'light', 'dark']),
+  choice('overlay.tone', 'overlay', true, ['none', 'light', 'dark', 'color']),
   choice('overlay.opacity', 'overlay', true, ['25', '50', '75']),
+  // Settings version 23: the colour an overlay set to Colour takes, one for every width.
+  token('overlay.color', 'overlay', false, 'color'),
 ]
 
 const BY_PATH = new Map(PROPERTIES.map((p) => [p.path, p]))
