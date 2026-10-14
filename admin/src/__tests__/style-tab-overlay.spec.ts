@@ -50,14 +50,39 @@ describe("a container's Overlay section", () => {
     expect(propertyDefinition('overlay.tone')).toMatchObject({
       group: 'overlay',
       responsive: true,
-      choices: ['none', 'light', 'dark'],
+      choices: ['none', 'light', 'dark', 'color'],
     })
     expect(propertyDefinition('overlay.opacity')).toMatchObject({
       group: 'overlay',
       responsive: true,
       choices: ['25', '50', '75'],
     })
-    expect(CHOICE_LABELS['overlay.tone']).toEqual({ none: 'None', light: 'Light', dark: 'Dark' })
+    expect(CHOICE_LABELS['overlay.tone']).toEqual({
+      none: 'None',
+      light: 'Light',
+      dark: 'Dark',
+      color: 'Colour',
+    })
     expect(CHOICE_LABELS['overlay.opacity']).toEqual({ '25': '25%', '50': '50%', '75': '75%' })
+  })
+
+  it('offers a colour from the palette for an overlay set to Colour, one for every width', () => {
+    const w = mount(StyleTab, {
+      props: {
+        block: { id: 'c1', type: 'container', data: {}, settings: { style: {} } },
+        blockType: container,
+        schema,
+        classes: [],
+        activeBreakpoint: 'base',
+      } as never,
+    })
+    expect(
+      w.find('[data-test="style-group-overlay"] [data-test="style-field-overlay.color"]').text(),
+    ).toContain('Overlay colour')
+    expect(propertyDefinition('overlay.color')).toMatchObject({
+      group: 'overlay',
+      responsive: false,
+      tokenDomain: 'color',
+    })
   })
 })

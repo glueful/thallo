@@ -168,6 +168,7 @@ const LABELS: Record<string, string> = {
   'menu_button.size': 'Icon size',
   'overlay.tone': 'Overlay',
   'overlay.opacity': 'Overlay opacity',
+  'overlay.color': 'Overlay colour',
   'feature.gap': 'Space after icon',
   'feature.align': 'Align icon',
   'hover.colors.text': 'Text colour',

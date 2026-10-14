@@ -51,6 +51,10 @@ final class GuardVerifyTest extends TestCase
         self::assertTrue($data['admission_ok']);
         self::assertArrayHasKey('control_writable', $data);
         self::assertArrayHasKey('private_readable', $data);
+        // The PHP-FPM master that answered, so the runner can tell it from another PHP-FPM on the
+        // server; outside PHP-FPM (this test runs on the command line) there is none.
+        self::assertArrayHasKey('fpm_master', $data);
+        self::assertNull($data['fpm_master']);
     }
 
     public function testBootReportsTheVersionAndTheContainer(): void

@@ -84,6 +84,56 @@ final class RunnerTest extends TestCase
         self::assertFileDoesNotExist($this->paths->closedFlag());
     }
 
+    /**
+     * CloudPanel runs its own PHP-FPM for the panel. Started before the guard, it does not hold the
+     * confirmation back: the probe names the master that serves this site, and that one was restarted.
+     */
+    public function testConfirmRestartIgnoresAPhpFpmThatDoesNotServeTheSite(): void
+    {
+        file_put_contents($this->paths->verifySecret(), 'secret');
+        unlink("{$this->base}/.thallo-update/guard.ready");
+        $this->host->ps = implode("\n", [
+            '  201     1      05:00 root      php-fpm: master process (/etc/php/8.4/fpm/php-fpm.conf)',
+            '  506     1   01:00:00 root      php-fpm: master process (/home/clp/services/php-fpm/fpm/php-fpm.conf)',
+        ]);
+        $this->host->fpmMaster = 201;
+
+        ob_start();
+        $code = $this->runner()->confirmRestart(true);
+        $out = (string) ob_get_clean();
+
+        self::assertSame(0, $code, $out);
+        self::assertStringNotContainsString('506', $out);
+        self::assertFileExists("{$this->base}/.thallo-update/guard.ready");
+    }
+
+    /**
+     * Simple mode (PHP-FPM started this runner, as the code owner): no restart confirmation, no folder
+     * modes, and a PHP-FPM it cannot reach over HTTP leaves the command-line check to confirm the release.
+     */
+    public function testSimpleModeUpdatesWithoutTheSeparationChecks(): void
+    {
+        unlink("{$this->base}/.thallo-update/guard.ready");
+        chmod("{$this->base}/.thallo-update", 0755);
+        $this->host->webDown = true;
+        $this->runner(simple: true)->tick();
+        chmod("{$this->base}/.thallo-update", 0700);
+        $op = $this->ops->current();
+        self::assertSame(Status::SUCCEEDED, $op['status'], (string) $op['error']);
+        self::assertSame('new', file_get_contents("{$this->base}/vendor/marker"));
+    }
+
+    /** The same server without simple mode: nothing runs. */
+    public function testWithoutSimpleModeAnUnreachablePhpFpmRefusesTheUpdate(): void
+    {
+        $this->host->webDown = true;
+        $this->runner()->tick();
+        $op = $this->ops->current();
+        self::assertSame(Status::FAILED, $op['status']);
+        self::assertStringContainsString('PHP-FPM cannot be reached', (string) $op['error']);
+        self::assertSame('old', file_get_contents("{$this->base}/vendor/marker"));
+    }
+
     public function testAStagingFailureNeverClosesTheSite(): void
     {
         $this->host->stageExit = 2;
@@ -465,7 +515,7 @@ final class RunnerTest extends TestCase
         gc_collect_cycles(); // the dead runner's lock handles close
     }
 
-    private function runner(?\Closure $kill = null): Runner
+    private function runner(?\Closure $kill = null, bool $simple = false): Runner
     {
         return new Runner(
             $this->paths,
@@ -474,7 +524,8 @@ final class RunnerTest extends TestCase
             $this->host,
             ['php' => PHP_BINARY, 'composer' => '/usr/local/bin/composer',
                 'verify_url' => 'http://127.0.0.1/_update/verify',
-                'verify_host' => 'site.test', 'keep_backups' => 3, 'barrier_timeout' => 5, 'web_settle' => 10],
+                'verify_host' => 'site.test', 'keep_backups' => 3, 'barrier_timeout' => 5, 'web_settle' => 10,
+                'simple' => $simple],
             static fn (): array => [12345, null], // no process group: a dropped runner is dead at once
             $kill
         );

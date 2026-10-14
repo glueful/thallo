@@ -92,10 +92,11 @@ final class StyleSchemaTest extends TestCase
             // Where an item sits in its row and which side of it takes the row's free space, and the
             // size of a Navigation block's menu button (settings version 21).
             'layout.order', 'layout.push', 'menu_button.size',
-            // A Container's overlay over its background, per width (settings version 22).
-            'overlay.tone', 'overlay.opacity',
+            // A Container's overlay over its background, per width (settings version 22), and a colour
+            // from the palette for it (settings version 23).
+            'overlay.tone', 'overlay.opacity', 'overlay.color',
         ], $paths);
-        self::assertSame(22, StyleSchema::VERSION);
+        self::assertSame(23, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -232,7 +233,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(22, StyleSchema::VERSION);
+        self::assertSame(23, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -484,11 +485,23 @@ final class StyleSchemaTest extends TestCase
         $opacity = StyleSchema::property('overlay.opacity');
         self::assertNotNull($tone);
         self::assertNotNull($opacity);
-        self::assertSame(['none', 'light', 'dark'], $tone->choices);
+        self::assertSame(['none', 'light', 'dark', 'color'], $tone->choices);
         self::assertSame(['25', '50', '75'], $opacity->choices);
         self::assertTrue($tone->responsive);
         self::assertTrue($opacity->responsive);
-        self::assertSame(['overlay.tone', 'overlay.opacity'], StyleSchema::pathsInGroup('overlay'));
+        self::assertSame(
+            ['overlay.tone', 'overlay.opacity', 'overlay.color'],
+            StyleSchema::pathsInGroup('overlay'),
+        );
+    }
+
+    public function testAnOverlaysColourIsOneColourFromThePalette(): void
+    {
+        // Overlay set to Colour takes it; any colour, Brand colours included, one for every width.
+        $color = StyleSchema::property('overlay.color');
+        self::assertNotNull($color);
+        self::assertSame('color', $color->tokenDomain);
+        self::assertFalse($color->responsive);
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void

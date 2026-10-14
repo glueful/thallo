@@ -188,6 +188,23 @@ final class NavigationStyleTest extends AppTestCase
         self::assertStringNotContainsString('t-mbsize-lg', $about);
     }
 
+    /** The room inside the hamburger, per side and per screen size, on the button alone. */
+    public function testTheMenuButtonSectionPadsTheHamburger(): void
+    {
+        $html = $this->render(['parts' => ['menu_button' => [
+            'spacing' => ['padding' => [
+                'top' => ['base' => self::token('spacing.sm')],
+                'left' => ['base' => self::token('spacing.lg'), 'md' => self::token('spacing.md')],
+            ]],
+        ]]]);
+        self::assertSame(1, preg_match('~<summary class="(thallo-block-navigation__hamburger[^"]*)"~', $html, $m));
+        foreach (['t-pt-sm', 't-pl-lg', 'md:t-pl-md'] as $class) {
+            self::assertStringContainsString(' ' . $class, $m[1]);
+        }
+        $about = self::classesOf($html, 'thallo-block-navigation__link', 'About');
+        self::assertStringNotContainsString('t-pl-lg', $about);
+    }
+
     public function testAnUnstyledMenuButtonIsTheThemes(): void
     {
         self::assertStringContainsString('<summary class="thallo-block-navigation__hamburger">', $this->render([]));

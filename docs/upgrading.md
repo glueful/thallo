@@ -152,11 +152,37 @@ browser only; the next release shows again. The notice clears the moment the upg
 
 For owners who run one server and would rather press **Update** than open a terminal. It is
 **off** unless you turn it on, and installs made with `composer create-project` never turn it on.
-When it is on, a separate **update runner** — scheduled by cron as the user that owns the code —
-does the update; PHP-FPM only checks, files the request and shows progress. That user can rewrite
-this site's code: that is the trade you accept by turning it on.
+When it is on, an **update runner** does the update as the user that owns the code; PHP-FPM
+checks, files the request and shows progress.
 
-### Turning it on
+How you turn it on depends on one thing: whether PHP-FPM can write your site's code. That is
+what installing extensions from the admin already needs, so if the extension store installs
+packages on your server, so does the update.
+
+- **PHP-FPM can write the code** (it runs as the user that owns the site): **simple mode**. One
+  setting and a provision, no cron line.
+- **PHP-FPM cannot** (a web user such as `www-data` serving code a deploy user owns): the runner
+  runs from cron as the deploy user, and the setup below keeps the two users apart.
+
+Thallo tells them apart on its own, from what PHP-FPM can write: `vendor/` and the private update
+folder.
+
+### Turning it on in simple mode
+
+1. Set `THALLO_ADMIN_UPDATES=true` in `.env`.
+2. Run `php glueful thallo:provision`. It installs `bin/thallo-updater` and
+   `bootstrap/update-guard.php`, creates the update folders, and adds the guard's include to
+   `public/index.php` and `glueful` on an install made before 1.0.0-beta.102.
+
+That is all. Pressing **Update** starts the runner in the background from PHP-FPM, the way the
+extension store runs Composer. There is no cron line and no restart to confirm. PHP-FPM can
+already write the code here, so separating the two users would protect nothing.
+
+The runner checks the release from PHP-FPM through `BASE_URL` (or `THALLO_UPDATE_VERIFY_URL`).
+When the server cannot reach its own site that way, the command-line check confirms the release
+instead, as a terminal upgrade does.
+
+### Turning it on with a separate web user
 
 1. Set `THALLO_ADMIN_UPDATES=true` in `.env`.
 2. Run `php glueful thallo:provision` **as the user that owns the code**. It installs
@@ -208,15 +234,21 @@ even while the site's code is being replaced. The runner, within a minute:
 
 ### When it is unavailable
 
-The card lists why, one sentence each: the runner has not checked in (its cron line), the code is
+The card lists why, one sentence each. In simple mode, PHP-FPM may be unable to start the runner
+(`proc_open` disabled, or `bin/thallo-updater` not installed). In either mode: the runner has not
+checked in (its cron line, with a separate web user), the code is
 not writable by the runner or **is** writable by PHP-FPM, Composer is missing or older than 2.2,
 `pg_dump`/`pg_restore` are missing, there is not enough disk, the guard is not installed, PHP-FPM
 cannot be reached to verify (`THALLO_UPDATE_VERIFY_URL`), PHP preloads code
 (`opcache.preload`), OPcache never rechecks files (`opcache.validate_timestamps=0`), the site runs
 on a persistent runtime (RoadRunner, Swoole, FrankenPHP worker mode), the restart after enabling
 has not been confirmed, the update folders are not laid out as above, or the release is outside
-what your `composer.json` allows. Each of those
+what your `composer.json` allows. The cron line, PHP-FPM writing the code, the verification URL,
+the restart and the folder layout apply only with a separate web user. Each of those
 means: update from the terminal, as above.
+
+A persistent runtime keeps the old code in memory after the files change, so updating from the
+admin refuses it in both modes: update from the terminal and restart the runtime's workers.
 
 The runner supports this `composer.json` shape: autoload paths inside the project (outside
 `vendor/`), the default `vendor-dir`, no `path` repositories and no relative `artifact` URLs, no
@@ -262,7 +294,7 @@ write or delete anything outside its own fixed set of files.
 ### Not supported
 
 More than one application server, network filesystems for the site, persistent PHP runtimes, PHP
-preloading, and installs without cron.
+preloading, and installs without cron when PHP-FPM runs as a separate web user.
 
 ## Extensions
 

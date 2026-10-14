@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Unit\Updates;
 
 use PHPUnit\Framework\TestCase;
+use Thallo\Core\Updates\RunnerLauncher;
 use Thallo\Core\Updates\UpdatePreflight;
 
 final class UpdatePreflightTest extends TestCase
@@ -30,6 +31,7 @@ final class UpdatePreflightTest extends TestCase
     protected function tearDown(): void
     {
         chmod("{$this->base}/vendor", 0755);
+        @chmod("{$this->base}/.thallo-update", 0755);
         exec('rm -rf ' . escapeshellarg($this->base));
     }
 
@@ -84,6 +86,112 @@ final class UpdatePreflightTest extends TestCase
         self::assertContains('web_can_write_code', $this->preflight()->check()['reasons']);
     }
 
+    /**
+     * Simple mode: PHP-FPM runs as the user that owns the code (any host where the extension store can install), so
+     * it can write the code and the private update folder. Separating the two users protects nothing
+     * there: no cron runner, no restart confirmation, no folder modes, and PHP-FPM itself checks the
+     * server. A cron runner's report, if one still runs, is not read.
+     */
+    public function testSimpleModeSkipsTheChecksThatOnlySeparateTwoUsers(): void
+    {
+        $this->simple();
+        $this->report([
+            'checked_at' => 1,
+            'composer_ok' => false,
+            'web' => null,
+            'layout_problems' => ['.thallo-update must be mode 0700'],
+            'unguarded_processes' => [['pid' => 506, 'args' => 'php-fpm: master process']],
+            'guard_ready_at' => null,
+        ]);
+        $r = $this->preflight(['launcher' => $this->launcher()])->check();
+        self::assertSame([], $r['reasons']);
+        self::assertTrue($r['ready']);
+    }
+
+    public function testSimpleModeChecksTheServerItselfAndKeepsTheAnswerFiveMinutes(): void
+    {
+        $this->simple();
+        $calls = 0;
+        $launcher = new RunnerLauncher(
+            $this->base,
+            'php',
+            '/usr/local/bin/composer',
+            static fn (): bool => true,
+            function () use (&$calls): array {
+                $calls++;
+                return $this->healthy(['composer_ok' => false]);
+            }
+        );
+        self::assertContains('composer_missing', $this->preflight(['launcher' => $launcher])->check()['reasons']);
+        self::assertContains('composer_missing', $this->preflight(['launcher' => $launcher])->check()['reasons']);
+        self::assertSame(1, $calls, 'the second answer comes from the kept report');
+        self::assertFileExists("{$this->base}/.thallo-update/runner-simple.json");
+    }
+
+    public function testSimpleModeKeepsTheChecksThatProtectTheSite(): void
+    {
+        $this->simple();
+        file_put_contents("{$this->base}/public/index.php", '<?php');
+        $r = $this->preflight(['launcher' => $this->launcher(), 'ini' => ['opcache.validate_timestamps' => '0']])
+            ->check();
+        self::assertContains('guard_missing', $r['reasons']);
+        self::assertContains('opcache_frozen', $r['reasons']);
+        self::assertFalse($r['ready']);
+    }
+
+    public function testSimpleModeNeedsAWayToStartTheRunner(): void
+    {
+        $this->simple();
+        self::assertContains('launch_unavailable', $this->preflight()->check()['reasons']);
+        unlink("{$this->base}/bin/thallo-updater"); // provision has not installed it
+        $reasons = $this->preflight(['launcher' => $this->launcher()])->check()['reasons'];
+        self::assertContains('launch_unavailable', $reasons);
+    }
+
+    /** PHP-FPM can write the code but not the private folder: the folders belong to another user. */
+    public function testCodeWritableWithoutThePrivateFolderIsNotSimpleMode(): void
+    {
+        $this->simple();
+        chmod("{$this->base}/.thallo-update", 0500);
+        $reasons = $this->preflight(['launcher' => $this->launcher()])->check()['reasons'];
+        self::assertContains('web_can_write_code', $reasons);
+    }
+
+    /** PHP-FPM writes the code and the private update folder, and the runner is installed. */
+    private function simple(): void
+    {
+        chmod("{$this->base}/vendor", 0777);
+        @mkdir("{$this->base}/.thallo-update", 0700);
+        @mkdir("{$this->base}/bin");
+        file_put_contents("{$this->base}/bin/thallo-updater", '<?php');
+    }
+
+    private function launcher(array $report = []): RunnerLauncher
+    {
+        return new RunnerLauncher(
+            $this->base,
+            'php',
+            '/usr/local/bin/composer',
+            static fn (): bool => true,
+            fn (): array => $this->healthy($report)
+        );
+    }
+
+    private function healthy(array $over = []): array
+    {
+        return array_merge([
+            'checked_at' => 10_000,
+            'writable' => true,
+            'composer_ok' => true,
+            'shape_problems' => [],
+            'pg_dump' => true,
+            'pg_restore' => true,
+            'free_bytes' => 10,
+            'needed_bytes' => 1,
+            'web' => null,
+        ], $over);
+    }
+
     private function report(array $over): void
     {
         file_put_contents("{$this->base}/.thallo-update-control/runner.json", json_encode(array_merge([
@@ -114,6 +222,7 @@ final class UpdatePreflightTest extends TestCase
             static fn (string $k): string => $ini[$k] ?? '',
             static fn (): string => $o['sapi'] ?? 'fpm-fcgi',
             static fn (): int => 10_100,
+            $o['launcher'] ?? null,
         );
     }
 

@@ -178,6 +178,10 @@
               "style": {
                 "layout": {
                   "display": {
+                    "base": {
+                      "type": "choice",
+                      "value": "grid"
+                    },
                     "lg": {
                       "type": "choice",
                       "value": "grid"
@@ -229,6 +233,10 @@
               "style": {
                 "layout": {
                   "display": {
+                    "base": {
+                      "type": "choice",
+                      "value": "grid"
+                    },
                     "lg": {
                       "type": "choice",
                       "value": "flex"

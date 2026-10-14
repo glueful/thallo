@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Thallo\Contracts\Style\StyleSchema;
 use Thallo\Contracts\Style\Vocabulary;
 use Thallo\Render\Style\ClassNames;
+use Thallo\Render\Style\ColorsArtifact;
 use Thallo\Render\Style\CompiledStyleArtifacts;
 use Thallo\Render\Style\StyleCompiler;
 use Thallo\Render\Style\ThemeVocabulary;
@@ -759,5 +760,20 @@ final class StyleCompilerTest extends TestCase
         // Per width: none on a wide screen takes a phone's overlay away.
         self::assertStringContainsString('.lg\\:t-ovtone-none { --thallo-overlay-bg: transparent; }', $css);
         self::assertStringContainsString('.md\\:t-ovopacity-50 { --thallo-overlay-opacity: 0.5; }', $css);
+    }
+
+    public function testAnOverlaySetToColourTakesTheOverlayColour(): void
+    {
+        $css = StyleCompiler::compile($this->vocabulary());
+        self::assertSame('t-ovcolor-accent', ClassNames::for('overlay.color', 'color.accent'));
+        $color = '--thallo-overlay-bg: var(--thallo-overlay-color, transparent);';
+        self::assertStringContainsString('.t-ovtone-color { ' . $color . ' }', $css);
+        self::assertStringContainsString('.lg\\:t-ovtone-color { ' . $color . ' }', $css);
+        self::assertStringContainsString('.t-ovcolor-accent { --thallo-overlay-color: var(--t-color-accent); }', $css);
+        // A Brand colour's utility comes with the workspace's colours stylesheet.
+        self::assertStringContainsString(
+            '.t-ovcolor-brand-2 { --thallo-overlay-color: var(--t-color-brand-2); }',
+            ColorsArtifact::compile([2]),
+        );
     }
 }

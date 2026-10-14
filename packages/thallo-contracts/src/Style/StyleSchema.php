@@ -12,7 +12,7 @@ namespace Thallo\Contracts\Style;
 final class StyleSchema
 {
     /** The settings representation version, stamped on documents as `_schema.settings`. */
-    public const VERSION = 22;
+    public const VERSION = 23;
 
     /**
      * Paths that were once properties and are no longer. A stored value at one is dropped when a
@@ -325,11 +325,15 @@ final class StyleSchema
         // so text over a photo can have it on a phone and not on a wide screen. The block's Overlay
         // field is still read, as the value every width starts from.
         $byPath['overlay.tone'] = new PropertyDefinition('overlay.tone', 'overlay', $choice, true, null, [
-            'none', 'light', 'dark',
+            'none', 'light', 'dark', 'color',
         ]);
         $byPath['overlay.opacity'] = new PropertyDefinition('overlay.opacity', 'overlay', $choice, true, null, [
             '25', '50', '75',
         ]);
+        // Settings version 23: the colour an overlay set to Colour takes, any colour of the palette,
+        // Brand colours included. One colour serves every width, as every colour setting does; the
+        // tone above decides per width whether it shows.
+        $byPath['overlay.color'] = new PropertyDefinition('overlay.color', 'overlay', $token, false, 'color');
         return self::$properties = $byPath;
     }
 
