@@ -48,8 +48,11 @@ test('the Layout tab drives a container mode switch and keeps what the other mod
   // The controls followed the new mode: direction appeared, the tracks went away.
   await expect(page.locator('[data-test="track-3"]')).toHaveCount(0)
 
+  // The display already has a value, so it is written at lg alone. The direction has none at any
+  // size, so it lands at base as well as at lg (editor/ops/responsiveWrite.ts): a page designed on
+  // Desktop keeps its design on phones.
   const apply = await applyNow(page, recorded)
-  expect(apply.operations.map((op) => op.type)).toEqual(['SetSetting', 'SetSetting'])
+  expect(apply.operations.map((op) => op.type)).toEqual(['SetSetting', 'SetSetting', 'SetSetting'])
   expect(apply.operations[0]).toMatchObject({
     type: 'SetSetting',
     block: 'grid00000001',
@@ -58,6 +61,13 @@ test('the Layout tab drives a container mode switch and keeps what the other mod
     to: { present: true, value: { type: 'choice', value: 'flex' } },
   })
   expect(apply.operations[1]).toMatchObject({
+    type: 'SetSetting',
+    block: 'grid00000001',
+    path: 'layout.direction',
+    breakpoint: 'base',
+    to: { present: true, value: { type: 'choice', value: 'column' } },
+  })
+  expect(apply.operations[2]).toMatchObject({
     type: 'SetSetting',
     block: 'grid00000001',
     path: 'layout.direction',
