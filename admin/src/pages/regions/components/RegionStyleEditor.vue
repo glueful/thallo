@@ -48,6 +48,7 @@ const block = computed(() => ({
 const { set, setAll } = useStyleRecord(
   () => props.modelValue,
   (next) => emit('update:modelValue', next),
+  { cascade: true },
 )
 </script>
 

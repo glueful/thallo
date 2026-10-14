@@ -13,6 +13,7 @@ import { diffDocuments } from '@/editor/ops/diff'
 import { newEditorSession } from '@/editor/ops/session'
 import { absent, present } from '@/editor/ops/types'
 import { readPath, setPath, settingSegments } from '@/editor/ops/apply'
+import { responsiveWrites, type ResponsiveWrite } from '@/editor/ops/responsiveWrite'
 import { fetchPaletteReplacements } from '@/queries/paletteReplacements'
 import { useStyleSchema } from '@/queries/styleSchema'
 import {
@@ -441,14 +442,15 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   function recordGroupSettings(
     ids: string[],
     path: string,
-    breakpoints: (Breakpoint | null)[],
-    value: StyleValue | null,
+    writesFor: (settings: Record<string, unknown>) => ResponsiveWrite[],
   ): void {
     if (!history) return
     commitNow()
     history.beginTransaction()
     for (const id of ids) {
-      for (const bp of breakpoints) {
+      const first = blockFromHistory(id)
+      if (!first) continue
+      for (const [bp, value] of writesFor((first.settings ?? {}) as Record<string, unknown>)) {
         const current = blockFromHistory(id)
         if (!current) continue
         const segments = settingSegments(path, bp).slice(1)
@@ -471,21 +473,36 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
     commitNow()
     void replayHistory().then(() => scheduleCommit(false))
   }
+  /** Apply where an edit lands ({@see responsiveWrites}) to one block's settings. */
+  function applyWrites(
+    settings: Record<string, unknown>,
+    path: string,
+    writes: ResponsiveWrite[],
+    part?: string,
+  ): Record<string, unknown> {
+    let next = settings
+    for (const [at, v] of writes) {
+      next = setPath(next, settingSegments(path, at, part), v === null ? absent() : present(v))
+    }
+    return next
+  }
   function onSetSetting(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
     const ids = styleTargets()
     if (ids.length > 1) {
-      recordGroupSettings(ids, path, [bp], value)
+      recordGroupSettings(ids, path, (s) => responsiveWrites(s, path, bp, value))
       return
     }
     if (selected.value === null) return
-    writeSettings(selected.value, (s) =>
-      setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)),
-    )
+    writeSettings(selected.value, (s) => applyWrites(s, path, responsiveWrites(s, path, bp, value)))
   }
   function onSetAll(path: string, value: StyleValue): void {
     const ids = styleTargets()
     if (ids.length > 1) {
-      recordGroupSettings(ids, path, ['base', 'md', 'lg'], value)
+      recordGroupSettings(ids, path, () => [
+        ['base', value],
+        ['md', value],
+        ['lg', value],
+      ])
       return
     }
     if (selected.value === null) return
@@ -506,7 +523,7 @@ export function useStageEditor(host: StageHost, refs: StageEditorRefs) {
   ): void {
     if (selected.value === null) return
     writeSettings(selected.value, (s) =>
-      setPath(s, settingSegments(path, bp, part), value === null ? absent() : present(value)),
+      applyWrites(s, path, responsiveWrites(s, path, bp, value, part), part),
     )
   }
   function onSetPartAll(part: string, path: string, value: StyleValue): void {

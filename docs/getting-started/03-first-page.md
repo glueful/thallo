@@ -93,10 +93,11 @@ The three buttons at the left of the top bar set the stage's width: **Desktop vi
 full panel), **Tablet viewport** (768px) and **Mobile viewport** (390px). The page reflows as a
 visitor's would.
 
-They do one more thing, and it catches everyone. The button also chooses which breakpoint your
-style settings are written at — Desktop writes `lg`, Tablet writes `md`, Mobile writes `base` —
-and a setting applies from its own width upwards until a wider one overrides it. So set the look
-you want on Mobile first, then correct it on Tablet and Desktop. Text you type on the stage is
+The button also chooses which breakpoint your style settings are written at — Desktop writes `lg`,
+Tablet writes `md`, Mobile writes `base` — and a setting applies from its own width upwards until a
+wider one overrides it. The first value you give a setting on Desktop or Tablet reaches every
+width, so a page designed on Desktop still has its spacing and columns on a phone; check Mobile
+and Tablet, and adjust what needs to differ there. Text you type on the stage is
 not affected: a word is a word at every width.
 
 ## Save, preview and publish

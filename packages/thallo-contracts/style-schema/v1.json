@@ -1,5 +1,5 @@
 {
-    "version": 21,
+    "version": 22,
     "properties": [
         {
             "path": "spacing.padding.top",
@@ -1156,6 +1156,36 @@
                 "sm",
                 "md",
                 "lg"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "overlay.tone",
+            "group": "overlay",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "none",
+                "light",
+                "dark"
+            ],
+            "kinds": [
+                "choice",
+                "reset"
+            ]
+        },
+        {
+            "path": "overlay.opacity",
+            "group": "overlay",
+            "responsive": true,
+            "token_domain": null,
+            "choices": [
+                "25",
+                "50",
+                "75"
             ],
             "kinds": [
                 "choice",

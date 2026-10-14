@@ -146,7 +146,8 @@
   display: none; cursor: pointer; list-style: none;
   min-height: 44px; min-width: 44px; align-items: center; justify-content: center;
   gap: var(--space-2); padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--line); border-radius: 0.5rem; color: var(--ink);
+  /* The bars are this colour: the text colour around it, so a dark header's button is light. */
+  border: 1px solid var(--line); border-radius: 0.5rem; color: inherit;
 }
 .thallo-block-navigation__hamburger:hover { border-color: var(--muted); }
 .thallo-block-navigation__hamburger::-webkit-details-marker { display: none; }
@@ -193,6 +194,11 @@ details[open] > .thallo-block-navigation__hamburger .thallo-block-navigation__ha
      A block's own Order and Push (layout.order, layout.push) win over this: the settings layer comes
      after the theme's. On the stage each block sits in a display: contents wrapper. */
   .site-header__inner { flex-wrap: wrap; }
+  /* A phone's header row is the logo, the menu button and a few icons: a Large logo (3.5rem tall,
+     often three times as wide) left no room for them and pushed the last onto a second line. On a
+     phone it is drawn at the Medium height, and no logo takes more than 40% of the width. */
+  .site-header .thallo-block-logo--large .thallo-block-logo__image { height: 2.5rem; }
+  .site-header .thallo-block-logo__image { max-width: 40vw; object-fit: contain; object-position: left center; }
   /* On a wide screen a region's nav grows into the space between the logo and the actions (below);
      on a phone it is only its button, so the free space is the row's to place. */
   .thallo-region .site-header__inner :where(.thallo-block-navigation, thallo-navigation) { flex: 0 1 auto; }

@@ -1273,6 +1273,31 @@ describe('canvas page', () => {
       wrapper.unmount()
     })
 
+    it('a first Desktop style edit on a group reaches every size: base and lg, per block', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+      wrapper
+        .findComponent({ name: 'BlockInspector' })
+        .vm.$emit('set-setting', 'spacing.padding.top', 'lg', {
+          type: 'token',
+          value: 'spacing.lg',
+        })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps() as Record<string, unknown>[]
+      expect(ops.map((o) => [o.block, o.breakpoint])).toEqual([
+        ['blockaaa0001', 'base'],
+        ['blockaaa0001', 'lg'],
+        ['blockbbb0002', 'base'],
+        ['blockbbb0002', 'lg'],
+      ])
+      wrapper.unmount()
+    })
+
     it('a part’s style edit is one SetSetting naming the part, saved in the part’s record', async () => {
       mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
       saveMock.mockResolvedValue(undefined)

@@ -5,11 +5,20 @@ import { nextTick } from 'vue'
 import type { Breakpoint, StyleValue } from '@/style/types'
 import { absent, present } from '@/editor/ops/types'
 import { setPath, settingSegments } from '@/editor/ops/apply'
+import { responsiveWrites } from '@/editor/ops/responsiveWrite'
 
 type Style = Record<string, unknown>
 type Settings = Record<string, unknown>
 
-export function useStyleRecord(current: () => Style, emit: (next: Style) => void) {
+/**
+ * `cascade`: place an edit by the block editor's rules ({@see responsiveWrites}) — a chrome region.
+ * A style class writes exactly the declaration edited (spec §12.5), and opens at base anyway.
+ */
+export function useStyleRecord(
+  current: () => Style,
+  emit: (next: Style) => void,
+  { cascade = false }: { cascade?: boolean } = {},
+) {
   /**
    * What was emitted earlier IN THIS TICK. One click can write several declarations — a linked box
    * writes every side — each emitted before the parent has fed the last one back as the model,
@@ -32,7 +41,14 @@ export function useStyleRecord(current: () => Style, emit: (next: Style) => void
   }
 
   function set(path: string, bp: Breakpoint | null, value: StyleValue | null): void {
-    write((s) => setPath(s, settingSegments(path, bp), value === null ? absent() : present(value)))
+    write((s) => {
+      let next = s
+      const writes = cascade ? responsiveWrites(s, path, bp, value) : [[bp, value] as const]
+      for (const [at, v] of writes) {
+        next = setPath(next, settingSegments(path, at), v === null ? absent() : present(v))
+      }
+      return next
+    })
   }
 
   function setAll(path: string, value: StyleValue): void {

@@ -97,6 +97,8 @@ const GROUPS: { key: string; label: string; match: (row: StylePropertyRow) => bo
   { key: 'marker', label: 'Marker', match: (r) => r.group === 'marker' },
   // A Navigation block's menu button: its icon's size, beside the button's colours and Effects.
   { key: 'menu_button', label: 'Icon', match: (r) => r.group === 'menu_button' },
+  // A Container's overlay over its background image or video, per screen size.
+  { key: 'overlay', label: 'Overlay', match: (r) => r.group === 'overlay' },
   // A tabs block's strip — the bar and the active tab's pill; the block's Effects are the panel's.
   { key: 'tabs', label: 'Tabs', match: (r) => r.group === 'tabs' },
   // A hero's aside — its padding and fill; the aside's corners and shadow are the block's Effects.
@@ -164,6 +166,8 @@ const LABELS: Record<string, string> = {
   'marker.size': 'Size',
   'marker.padding': 'Padding',
   'menu_button.size': 'Icon size',
+  'overlay.tone': 'Overlay',
+  'overlay.opacity': 'Overlay opacity',
   'feature.gap': 'Space after icon',
   'feature.align': 'Align icon',
   'hover.colors.text': 'Text colour',

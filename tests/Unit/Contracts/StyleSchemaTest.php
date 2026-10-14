@@ -92,8 +92,10 @@ final class StyleSchemaTest extends TestCase
             // Where an item sits in its row and which side of it takes the row's free space, and the
             // size of a Navigation block's menu button (settings version 21).
             'layout.order', 'layout.push', 'menu_button.size',
+            // A Container's overlay over its background, per width (settings version 22).
+            'overlay.tone', 'overlay.opacity',
         ], $paths);
-        self::assertSame(21, StyleSchema::VERSION);
+        self::assertSame(22, StyleSchema::VERSION);
         self::assertSame(['base', 'md', 'lg'], StyleSchema::BREAKPOINTS);
     }
 
@@ -230,7 +232,7 @@ final class StyleSchemaTest extends TestCase
             StyleSchema::pathsInGroup('layout.item'),
             StyleCapabilities::fromDeclaration(['layout.item'])->paths(),
         );
-        self::assertSame(21, StyleSchema::VERSION);
+        self::assertSame(22, StyleSchema::VERSION);
     }
 
     public function testMotionIsABlocksOwnGroupAndStaggerIsTheArrangersAlone(): void
@@ -473,6 +475,20 @@ final class StyleSchemaTest extends TestCase
         self::assertSame(['sm', 'md', 'lg'], $size->choices);
         self::assertFalse($size->responsive);
         self::assertSame(['menu_button.size'], StyleSchema::pathsInGroup('menu_button'));
+    }
+
+    public function testAnOverlayIsAToneAndAnOpacityPerWidth(): void
+    {
+        // On a phone the text over a photo needs the overlay; on a wide screen it may not.
+        $tone = StyleSchema::property('overlay.tone');
+        $opacity = StyleSchema::property('overlay.opacity');
+        self::assertNotNull($tone);
+        self::assertNotNull($opacity);
+        self::assertSame(['none', 'light', 'dark'], $tone->choices);
+        self::assertSame(['25', '50', '75'], $opacity->choices);
+        self::assertTrue($tone->responsive);
+        self::assertTrue($opacity->responsive);
+        self::assertSame(['overlay.tone', 'overlay.opacity'], StyleSchema::pathsInGroup('overlay'));
     }
 
     public function testCapabilitiesRejectUnknownPaths(): void

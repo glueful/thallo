@@ -74,9 +74,14 @@ measured width.
 
 Here is the rule. **A setting is written at the breakpoint the stage is showing, and applies from
 that width up.** To find a value at lg, Thallo looks at lg, then md, then base, and takes the
-first declaration it finds. A padding set on Desktop does nothing on a phone; a padding set on
-Mobile reaches every width unless something above overrides it. Set the base first, then
-override upwards.
+first declaration it finds. A padding set on Mobile reaches every width unless something above
+overrides it.
+
+One exception keeps a page designed on Desktop from falling apart on a phone: the **first** value
+you give a setting on Desktop or Tablet, when the block has none for it at any width, is written at
+base too. Every width gets it, and the width you were on keeps its own copy, so changing it later
+on Mobile leaves Desktop as it was. From then on each width is edited on its own. The same holds
+for a header's or footer's Style tab; a style class writes exactly the breakpoint you edit.
 
 Each setting says where its value came from — set here, inherited from a narrower breakpoint,
 from a style class, or the theme's default — and a dot marks each breakpoint carrying a

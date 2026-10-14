@@ -124,3 +124,33 @@ test("the open menu's panel is the header's colour", async ({ page: p }) => {
   expect(header).toBe('rgb(0, 0, 0)');
   expect(panel).toBe('rgb(0, 0, 0)');
 });
+
+test('a Large header logo is drawn at the Medium height on phones, and at its own on a wide screen', async ({ page: p }) => {
+  const logo = (q) => q.locator('.site-header .thallo-block-logo__image').evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { width: r.width, height: r.height };
+  });
+  await p.setViewportSize(PHONE);
+  await p.goto(page('large'));
+  const phone = await logo(p);
+  expect(Math.round(phone.height)).toBe(40);
+  expect(Math.round(phone.width)).toBe(120);
+  // The row stays one line: the logo, the menu button and the button share a top edge.
+  const [l, b, c] = await Promise.all([box(p, LOGO), box(p, BUTTON), box(p, CART)]);
+  expect(Math.abs(l.top - c.top)).toBeLessThan(20);
+  expect(Math.abs(b.top - c.top)).toBeLessThan(20);
+
+  await p.setViewportSize(WIDE);
+  expect(Math.round((await logo(p)).height)).toBe(56);
+});
+
+test("with no style of its own, the menu button's bars are the header's text colour", async ({ page: p }) => {
+  await p.setViewportSize(PHONE);
+  await p.goto(page('dark'));
+  const [bar, header] = await Promise.all([
+    p.locator('.thallo-block-navigation__hamburger-icon').evaluate((el) => getComputedStyle(el).backgroundColor),
+    p.locator(HEADER).evaluate((el) => getComputedStyle(el).color),
+  ]);
+  expect(header).toBe('rgb(255, 255, 255)');
+  expect(bar).toBe(header);
+});

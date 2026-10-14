@@ -422,6 +422,22 @@ icon), Background, Border colour, the border, Corners, and its icon size (settin
 The default theme draws the icon at 1.125rem until a size is set; the bars and the gaps between them
 grow with it. The button stays at least 44px square.
 
+### Overlay
+
+A Container's **Overlay** section: the layer over its background image or video, per screen size
+(settings version 22). Dark on Mobile and None on Desktop darkens a photo behind text on a phone
+only.
+
+| Setting | Path | Responsive | Class | Declaration |
+|---|---|---|---|---|
+| Overlay | `overlay.tone` | yes | `t-ovtone-{none,light,dark}` | `--thallo-overlay-bg:` `none` transparent, `light` #fff, `dark` #000 |
+| Overlay opacity | `overlay.opacity` | yes | `t-ovopacity-{25,50,75}` | `--thallo-overlay-opacity:` 0.25, 0.5, 0.75 |
+
+The layer covers the whole container, its padding included. The block's own **Overlay** and
+**Overlay opacity** fields (Content tab, Background) still apply, at every size: where a size has
+a value here, this one wins. With an Overlay and no opacity, the strength is 50%. A container never
+takes the overlay of the one around it.
+
 ### Tabs
 
 The Tabs block's strip, beside the panels area, which the block's own Corners setting governs.
