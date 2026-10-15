@@ -1298,6 +1298,34 @@ describe('canvas page', () => {
       wrapper.unmount()
     })
 
+    it('Order set on Mobile is for phones alone: Tablet and Desktop are pinned where they were', async () => {
+      mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+      saveMock.mockResolvedValue(undefined)
+      const wrapper = mountPage()
+      await flushPromises()
+      await selectPair(wrapper)
+      wrapper
+        .findComponent({ name: 'BlockInspector' })
+        .vm.$emit('set-setting', 'layout.order', 'base', { type: 'choice', value: 'first' })
+      await flushPromises()
+      await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+      await flushPromises()
+      const ops = lastOps() as unknown as {
+        block: string
+        breakpoint: string
+        to: { value: { value: string } }
+      }[]
+      expect(ops.map((o) => [o.block, o.breakpoint, o.to.value.value])).toEqual([
+        ['blockaaa0001', 'base', 'first'],
+        ['blockaaa0001', 'md', 'default'],
+        ['blockaaa0001', 'lg', 'default'],
+        ['blockbbb0002', 'base', 'first'],
+        ['blockbbb0002', 'md', 'default'],
+        ['blockbbb0002', 'lg', 'default'],
+      ])
+      wrapper.unmount()
+    })
+
     it('a part’s style edit is one SetSetting naming the part, saved in the part’s record', async () => {
       mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
       saveMock.mockResolvedValue(undefined)

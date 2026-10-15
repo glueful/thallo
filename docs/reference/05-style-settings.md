@@ -652,7 +652,9 @@ Align self and Order, and a flex parent offers Basis, Grow, Shrink, Align self, 
 Order and Push came with settings version 21. Order moves an item to the front or the back of its
 row at one size and not another: a header's menu button before the logo on phones, back in place on
 wider screens. Push gives the row's free space to one side of the item or both, which moves it and
-everything after it. It writes the property **Placement** (`alignment.self`) writes, and is emitted
+everything after it. Both arrange a row per device, so the editor writes them for the size being
+edited alone: nothing is copied to base, and each larger size without a value of its own is saved
+with the one it showed (the inherited value, or `default` / `none`). It writes the property **Placement** (`alignment.self`) writes, and is emitted
 after it, so on a block with both the push wins. **None** also takes away the theme's own push: in
 the default theme the free space of a phone's header row goes after the logo.
 

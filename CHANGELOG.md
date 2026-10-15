@@ -5,6 +5,15 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Changed
+- **Order and Push are per device**: a block's **Order** and **Push** (Layout tab, As an item)
+  change the screen size being edited and no other. A Desktop or Tablet value is no longer copied
+  to phones, and a Mobile or Tablet value no longer reaches the wider sizes: each wider size without
+  a value of its own is saved with the one it showed. Putting a header's menu button first on Mobile
+  leaves Tablet and Desktop as they were. Every other setting keeps the 1.0.0-beta.105 rule.
+
 ## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
 
 Updating from the admin without the setup: where PHP-FPM can write the site's code, the same thing

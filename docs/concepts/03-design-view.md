@@ -83,6 +83,11 @@ base too. Every width gets it, and the width you were on keeps its own copy, so 
 on Mobile leaves Desktop as it was. From then on each width is edited on its own. The same holds
 for a header's or footer's Style tab; a style class writes exactly the breakpoint you edit.
 
+**Order** and **Push**, which arrange a row, work per device instead: a change applies to the width
+you are on and no other. Nothing is copied to base, and each wider width without a value of its own
+is saved with the one it showed, so putting a header's menu button first on Mobile leaves Tablet and
+Desktop as they were.
+
 Each setting says where its value came from — set here, inherited from a narrower breakpoint,
 from a style class, or the theme's default — and a dot marks each breakpoint carrying a
 declaration of its own. **Apply to all breakpoints** writes one value at all three. **Clear**
