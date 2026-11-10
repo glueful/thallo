@@ -48,9 +48,21 @@ up_init() {
   up_log "update-proof: work in $WORK (FastCGI: $FASTCGI, single user: $SINGLE_USER)"
 }
 
-# Run as the code owner (CI: a separate deploy user; locally: this user).
+# What the code owner's commands read from the harness: the kill points and the Composer wrappers
+# the scenarios set per tick, and the database client's settings.
+DEPLOY_ENV=(THALLO_UPDATER_KILL_AT THALLO_UPDATE_CHILD COMPOSER_BINARY COMPOSER_IGNORE_PLATFORM_REQ
+  PGOPTIONS PGHOST PGPORT PGUSER PGPASSWORD)
+
+# Run as the code owner (CI: a separate deploy user; locally: this user). Each variable is passed by
+# name: sudo-rs (GitHub's runners) ignores `sudo -E`, so a kill point set that way never reached
+# the runner, the update it should have stopped ran to the end, and scenario 3 failed.
 as_deploy() {
-  if [[ "$SINGLE_USER" == 1 ]]; then "$@"; else sudo -E -u "$DEPLOY_USER" env "PATH=$PATH" "$@"; fi
+  if [[ "$SINGLE_USER" == 1 ]]; then "$@"; return; fi
+  local pass=("PATH=$PATH") name
+  for name in "${DEPLOY_ENV[@]}"; do
+    [[ -n "${!name+set}" ]] && pass+=("$name=${!name}")
+  done
+  sudo -u "$DEPLOY_USER" env "${pass[@]}" "$@"
 }
 
 # Run as the web user, PHP-FPM's (CI: www-data; locally: this user).
