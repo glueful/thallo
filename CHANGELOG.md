@@ -18,8 +18,16 @@ as the next release, never a mutated tag.
   uploaded. Template authors: `media_image()` returns `webp` beside `src` and `srcset`, and
   `site_logo_image()` is new; `<picture class="thallo-picture">` is `display: contents`, so layout
   and selectors see the `<img>` as before.
+- **Images cached for a year**: every image URL from `media_image()`, the site logo and the shop
+  names the file's version (`?v=`), which glueful/framework 1.92 answers with
+  `public, max-age=31536000, immutable`. Browsers stop asking again for images they already have,
+  and a CDN can serve them. Replacing an image changes its URL, so no one sees the old copy.
+  `media_url()` and the Delivery API's asset `url` stay plain. Behind Cloudflare, add one Cache Rule
+  for `/v1/blobs/` (see the media guide) so images are served from Cloudflare instead of your
+  server.
 
 ### Changed
+- **Requires glueful/framework 1.92**, which also keeps private files out of shared caches.
 - **Order and Push are per device**: a block's **Order** and **Push** (Layout tab, As an item)
   change the screen size being edited and no other. A Desktop or Tablet value is no longer copied
   to phones, and a Mobile or Tablet value no longer reaches the wider sizes: each wider size without

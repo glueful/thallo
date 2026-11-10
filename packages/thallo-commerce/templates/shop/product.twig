@@ -39,7 +39,7 @@
         {% if image and image.webp %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ image.webp }}" sizes="{{ sizes }}" data-shop-cover-webp>{% endif -%}
         <img
           class="shop-product__cover"
-          src="{{ product.coverUrl }}"
+          src="{{ image.src ?? product.coverUrl }}"
           {%- if image and image.srcset %} srcset="{{ image.srcset }}" sizes="{{ sizes }}"{% endif %}
           alt="{{ product.name }}"
           data-shop-cover
@@ -53,13 +53,13 @@
               <button
                 type="button"
                 data-shop-thumb
-                data-src="{{ item.url }}"
+                data-src="{{ item.src ?? item.url }}"
                 data-alt="{{ item.alt ?? product.name }}"
                 aria-current="{{ loop.first ? 'true' : 'false' }}"
                 aria-label="Show image {{ loop.index }} of {{ product.gallery|length }}"
               >
                 {% if item.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ item.webp }}" sizes="3.5rem">{% endif -%}
-                <img src="{{ item.url }}"{% if item.srcset ?? null %} srcset="{{ item.srcset }}" sizes="3.5rem"{% endif %} alt="" loading="lazy">
+                <img src="{{ item.src ?? item.url }}"{% if item.srcset ?? null %} srcset="{{ item.srcset }}" sizes="3.5rem"{% endif %} alt="" loading="lazy">
                 {%- if item.webp ?? null %}</picture>{% endif %}
               </button>
             {% endfor %}

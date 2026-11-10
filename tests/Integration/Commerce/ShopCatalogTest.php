@@ -651,21 +651,29 @@ final class ShopCatalogTest extends AppTestCase
         $blobUuid = $this->seedGridProductWithGalleryMedia('sized-cover-prod');
 
         $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+        $at = '/blobs/' . $blobUuid . '?v=' . $this->blobVersion($blobUuid);
 
         self::assertSame(1, preg_match(
-            '~<img class="shop-grid__image" src="[^"]*/blobs/' . $blobUuid . '" srcset="([^"]+)" sizes="([^"]+)"~',
+            '~<img class="shop-grid__image" src="[^"]*' . preg_quote($at, '~') . '" srcset="([^"]+)" sizes="([^"]+)"~',
             $html,
             $m,
         ), 'the card image carries a srcset of sized copies');
-        self::assertStringContainsString('/blobs/' . $blobUuid . '?width=240 240w', $m[1]);
-        self::assertStringContainsString('/blobs/' . $blobUuid . '?width=960 960w', $m[1]);
-        $webp = '<source type="image/webp" srcset="' . explode('/blobs/', $m[1])[0] . '/blobs/' . $blobUuid
-            . '?width=240&amp;format=webp 240w';
+        self::assertStringContainsString($at . '&amp;width=240 240w', $m[1]);
+        self::assertStringContainsString($at . '&amp;width=960 960w', $m[1]);
+        $webp = '<source type="image/webp" srcset="' . explode('/blobs/', $m[1])[0] . $at
+            . '&amp;width=240&amp;format=webp 240w';
         if (\Thallo\Core\Providers\CoreServiceProvider::canEncodeWebp('gd')) {
             self::assertStringContainsString($webp, $html, 'a WebP copy where the server encodes it');
         } else {
             self::assertStringNotContainsString('format=webp', $html);
         }
+    }
+
+    private function blobVersion(string $uuid): string
+    {
+        $row = $this->connection()->table('blobs')->where('uuid', '=', $uuid)->first();
+        self::assertIsArray($row);
+        return \Glueful\Uploader\BlobVersion::of($row);
     }
 
     public function testProductPageCoverAndThumbsOfferSizedCopies(): void
@@ -695,13 +703,15 @@ final class ShopCatalogTest extends AppTestCase
 
         // The cover: sized copies at the page's sizes, and the swap's WebP source where encoded.
         self::assertMatchesRegularExpression(
-            '~class="shop-product__cover"\s+src="[^"]*/blobs/' . $blobs[0] . '" srcset="[^"]*\?width=640 640w~',
+            '~class="shop-product__cover"\s+src="[^"]*/blobs/' . $blobs[0] . '\?v=[a-f0-9]{12}" '
+                . 'srcset="[^"]*&amp;width=640 640w~',
             $html,
         );
         // Each thumb: its own small copies, which shop.js moves to the cover on a click.
         foreach ($blobs as $blob) {
             self::assertMatchesRegularExpression(
-                '~<img src="[^"]*/blobs/' . $blob . '" srcset="[^"]*\?width=160 160w[^"]*" sizes="3.5rem"~',
+                '~<img src="[^"]*/blobs/' . $blob . '\?v=[a-f0-9]{12}" srcset="[^"]*&amp;width=160 160w[^"]*" '
+                    . 'sizes="3.5rem"~',
                 $html,
             );
         }

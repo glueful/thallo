@@ -19,7 +19,7 @@ final class ProductViewModel
 {
     /**
      * @param array{average: float, count: int}|null $rating
-     * @param list<array{url: string, alt: ?string, srcset?: ?string, webp?: ?string}> $gallery
+     * @param list<array{url: string, src?: string, alt: ?string, srcset?: ?string, webp?: ?string}> $gallery
      * @param array{src: string, srcset: ?string, webp: ?string}|null $coverImage
      */
     public function __construct(
@@ -67,7 +67,7 @@ final class ProductViewModel
      *     through the {@see \Thallo\Contracts\Delivery\MediaUrlResolver} authority — never a
      *     hand-concatenated `/blobs/…` path, which missed the API prefix and ignored blob
      *     visibility), null when no image resolves
-     * @param list<array{url: string, alt: ?string, srcset?: ?string, webp?: ?string}> $gallery resolved
+     * @param list<array{url: string, src?: string, alt: ?string, srcset?: ?string, webp?: ?string}> $gallery resolved
      *     gallery image URLs, cover-role rows first — only the product detail page passes a non-empty list
      * @param array{src: string, srcset: ?string, webp: ?string}|null $coverImage the cover's sized copies
      */

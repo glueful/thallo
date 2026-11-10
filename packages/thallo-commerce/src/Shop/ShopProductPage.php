@@ -91,6 +91,8 @@ final class ShopProductPage
             }
             $gallery[] = [
                 'url' => $url,
+                // The sized copies' own src names the image's version (cacheable for a year).
+                'src' => $image['src'] ?? $url,
                 'alt' => isset($row['alt']) && is_string($row['alt']) && $row['alt'] !== '' ? $row['alt'] : null,
                 'srcset' => $image['srcset'] ?? null,
                 'webp' => $image['webp'] ?? null,

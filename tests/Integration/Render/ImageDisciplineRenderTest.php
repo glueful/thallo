@@ -64,8 +64,8 @@ final class ImageDisciplineRenderTest extends AppTestCase
         // real ?width= candidates at the hero's pinned widths, plus the sizes hint
         // matching the theme's 40rem hero media cap. (Plain-image parity — the
         // srcset:null outcome — is pinned by its own render test below.)
-        self::assertStringContainsString('?width=640 640w', $html);
-        self::assertStringContainsString('?width=1920 1920w', $html);
+        self::assertStringContainsString('&amp;width=640 640w', $html);
+        self::assertStringContainsString('&amp;width=1920 1920w', $html);
         self::assertStringContainsString('sizes="(max-width: 48rem) 100vw, 40rem"', $html);
     }
 

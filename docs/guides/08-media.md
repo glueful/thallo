@@ -81,14 +81,15 @@ Image blocks and takes each one's **alt** the same way.
 
 A theme never writes a file path. Each image slot asks for the file by its id and for a list of
 widths; the default theme's Image block asks for 480, 768, 1024 and 1536. Back come the original
-at `/v1/blobs/{uuid}` and one candidate per width, `/v1/blobs/{uuid}?width=768 768w`, and the
-browser picks.
+at `/v1/blobs/{uuid}?v=3f9c2a1b7d04` and one candidate per width,
+`/v1/blobs/{uuid}?v=3f9c2a1b7d04&width=768 768w`, and the browser picks. `v` is the file's version
+(see [Caching images](#caching-images)).
 
 - Only a public, undeleted file resolves at all. When nothing resolves the theme leaves the
   picture out rather than printing a broken one.
 - Only JPEG, PNG, GIF and WebP get candidates. An SVG is served as it is.
 - A width above `max_width` in `config/uploads.php` — 2048 — is dropped from the list.
-- A JPEG or PNG also gets the same widths as WebP, `?width=768&format=webp`, inside a
+- A JPEG or PNG also gets the same widths as WebP, `&width=768&format=webp`, inside a
   `<picture>` beside the `<img>`. Every current browser takes the WebP copy, often a tenth of the
   size of a PNG photo; one that cannot reads WebP falls back to the `<img>` in the upload's
   format. It needs an image driver that writes WebP (most PHP builds' GD does) and `webp` in
@@ -98,6 +99,22 @@ browser picks.
 The site logo, the shop's product cards and a product page's images and thumbnails get sized
 copies too, so a header or a product grid loads a few kilobytes per picture rather than each full
 upload.
+
+### Caching images
+
+Every image URL a theme gets this way names the file's version, a short code that changes when the
+file is replaced. The server answers a URL at the current version with
+`Cache-Control: public, max-age=31536000, immutable`, so browsers and a CDN can keep the copy for a
+year. Replace an image and the page links a new URL, so no one sees the old one. A private file is
+never stored by a shared cache.
+
+`media_url()` and the Delivery API's asset `url` stay plain (`/v1/blobs/{uuid}`), since a template
+or an app may add its own `?width=` to them; those get a one-day cache.
+
+Behind Cloudflare, images reach your server on every view until you add one Cache Rule: **URI Path
+starts with `/v1/blobs/`**, eligible for cache, Edge TTL from the origin's cache-control header,
+Browser TTL respecting the origin. The
+[framework's caching guide](https://glueful.com/features/file-uploads#caching) has the details.
 
 The resize happens on the first request for that width and is cached for `cache_ttl`, seven
 days. Both the original and the variants answer with `Cache-Control: public, max-age=86400`, so
