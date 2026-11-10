@@ -102,6 +102,9 @@ h1 { font-size: clamp(1.9rem, 1.4rem + 2vw, 2.75rem); }
 h2 { font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem); }
 a { color: var(--accent); }
 img { max-width: 100%; display: block; }
+/* The <picture> around a responsive image only offers the browser a WebP copy: it takes no box
+   of its own, so the <img> sits in its parent's layout exactly as it would alone. */
+.thallo-picture { display: contents; }
 
 .site-header {
   position: sticky;

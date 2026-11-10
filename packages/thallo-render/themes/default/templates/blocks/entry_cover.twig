@@ -11,10 +11,13 @@
   {% set priority = claim_priority_image() %}
 <figure class="thallo-block thallo-block-entry_cover thallo-block-entry_cover--{{ aspect }}{{ style_classes('root') }}"{{ style_attrs('root') }}>
   {%- if href %}<a href="{{ href }}">{% endif -%}
+  {%- set sizes = thumbnail ? '(max-width: 48rem) 96px, 160px' : '(max-width: 72rem) 100vw, 72rem' -%}
+  {% if image.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ image.webp }}" sizes="{{ sizes }}">{% endif -%}
   <img class="thallo-block-entry_cover__image{{ style_classes('picture') }}"{{ style_attrs('picture') }} src="{{ image.src }}"
-       {%- if image.srcset %} srcset="{{ image.srcset }}" sizes="{{ thumbnail ? '(max-width: 48rem) 96px, 160px' : '(max-width: 72rem) 100vw, 72rem' }}"{% endif %}
+       {%- if image.srcset %} srcset="{{ image.srcset }}" sizes="{{ sizes }}"{% endif %}
        alt=""
        {%- if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+  {%- if image.webp ?? null %}</picture>{% endif -%}
   {%- if href %}</a>{% endif -%}
 </figure>
 {% elseif is_canvas() %}

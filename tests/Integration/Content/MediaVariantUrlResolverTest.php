@@ -28,8 +28,11 @@ final class MediaVariantUrlResolverTest extends AppTestCase
         ]);
     }
 
-    private function resolver(bool $capable = true, int $maxWidth = 2048): EngineMediaVariantUrlResolver
-    {
+    private function resolver(
+        bool $capable = true,
+        int $maxWidth = 2048,
+        bool $webp = false,
+    ): EngineMediaVariantUrlResolver {
         return new EngineMediaVariantUrlResolver(
             $this->connection(),
             '/api/blobs',
@@ -37,6 +40,7 @@ final class MediaVariantUrlResolverTest extends AppTestCase
             accessMode: false,
             maxWidth: $maxWidth,
             resizingCapable: $capable,
+            webpCapable: $webp,
         );
     }
 
@@ -90,16 +94,61 @@ final class MediaVariantUrlResolverTest extends AppTestCase
         // to src when a chosen srcset candidate fails. Valid image, no candidates.
         $this->seedBlob('variantsvg01', 'image/svg+xml');
         $result = $this->resolver()->variants('variantsvg01', [320, 640]);
-        self::assertSame(['src' => '/api/blobs/variantsvg01', 'srcset' => null], $result);
+        self::assertSame(['src' => '/api/blobs/variantsvg01', 'srcset' => null, 'webp' => null], $result);
     }
 
     public function testIncapableResolverStillDistinguishesValidFromInvalid(): void
     {
         $this->seedBlob('variantimg03', 'image/png');
         $result = $this->resolver(capable: false)->variants('variantimg03', [320]);
-        self::assertSame(['src' => '/api/blobs/variantimg03', 'srcset' => null], $result);
+        self::assertSame(['src' => '/api/blobs/variantimg03', 'srcset' => null, 'webp' => null], $result);
 
         $this->seedBlob('variantpdf02', 'application/pdf');
         self::assertNull($this->resolver(capable: false)->variants('variantpdf02', [320]));
+    }
+
+    public function testJpegAndPngGainWebpCandidatesWhereTheServerEncodesWebp(): void
+    {
+        $this->seedBlob('variantimg04', 'image/png');
+        $result = $this->resolver(webp: true)->variants('variantimg04', [320, 640]);
+
+        self::assertSame(
+            '/api/blobs/variantimg04?width=320 320w, /api/blobs/variantimg04?width=640 640w',
+            $result['srcset'],
+            'the original format stays the <img> fallback',
+        );
+        self::assertSame(
+            '/api/blobs/variantimg04?width=320&format=webp 320w, /api/blobs/variantimg04?width=640&format=webp 640w',
+            $result['webp'],
+        );
+        self::assertNull($this->resolver()->variants('variantimg04', [320])['webp'], 'no WebP encoder: none');
+    }
+
+    public function testWebpAndGifSourcesGetNoWebpCandidates(): void
+    {
+        // A WebP is already WebP; a GIF may be animated, and a converted frame would freeze it.
+        $this->seedBlob('variantimg05', 'image/webp');
+        $this->seedBlob('variantgif01', 'image/gif');
+        self::assertNull($this->resolver(webp: true)->variants('variantimg05', [320])['webp']);
+        self::assertNull($this->resolver(webp: true)->variants('variantgif01', [320])['webp']);
+        self::assertNotNull($this->resolver(webp: true)->variants('variantgif01', [320])['srcset']);
+    }
+
+    public function testManyResolvesEveryUuidInRequestOrderWithNullForWhatThePageMayNotShow(): void
+    {
+        $this->seedBlob('variantimg06', 'image/jpeg');
+        $this->seedBlob('variantpriv2', 'image/jpeg', visibility: 'private');
+        $this->seedBlob('variantimg07', 'image/png');
+
+        $many = $this->resolver(webp: true)->variantsMany(
+            ['variantimg07', 'variantpriv2', 'variantnope2', 'variantimg06', 'variantimg07'],
+            [320],
+        );
+
+        self::assertSame(['variantimg07', 'variantpriv2', 'variantnope2', 'variantimg06'], array_keys($many));
+        self::assertNull($many['variantpriv2']);
+        self::assertNull($many['variantnope2']);
+        self::assertSame($this->resolver(webp: true)->variants('variantimg06', [320]), $many['variantimg06']);
+        self::assertSame('/api/blobs/variantimg07?width=320&format=webp 320w', $many['variantimg07']['webp']);
     }
 }

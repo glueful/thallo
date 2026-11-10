@@ -30,7 +30,7 @@ final class ProductPageGoldenTest extends AppTestCase
 
     /** Page => how many ids, blob URLs, versioned asset URLs and scope tokens it normalizes. */
     private const SUBSTITUTIONS = [
-        'simple' => ['ids' => 2, 'blobs' => 6, 'assets' => 6, 'scope' => 1],
+        'simple' => ['ids' => 2, 'blobs' => 42, 'assets' => 6, 'scope' => 1],
         'multi' => ['ids' => 3, 'blobs' => 0, 'assets' => 6, 'scope' => 1],
         'addon' => ['ids' => 1, 'blobs' => 0, 'assets' => 6, 'scope' => 1],
     ];

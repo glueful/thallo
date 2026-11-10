@@ -28,9 +28,9 @@ final class ListingPageGoldenTest extends AppTestCase
 
     /** Page => how many ids, blob URLs and versioned asset URLs it normalizes. */
     private const SUBSTITUTIONS = [
-        'listing' => ['ids' => 0, 'blobs' => 6, 'assets' => 6],
+        'listing' => ['ids' => 0, 'blobs' => 10, 'assets' => 6],
         'page2' => ['ids' => 0, 'blobs' => 0, 'assets' => 6],
-        'archive' => ['ids' => 0, 'blobs' => 6, 'assets' => 6],
+        'archive' => ['ids' => 0, 'blobs' => 10, 'assets' => 6],
     ];
 
     private const PAGES = [

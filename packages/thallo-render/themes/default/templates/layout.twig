@@ -120,22 +120,27 @@
   {% elseif not headerHidden %}
   <header class="site-header">
     <div class="site-header__inner">
-      {% set logo = site_logo() %}
-      {% set logoDark = site_logo('dark') %}
+      {% set logo = site_logo_image() %}
+      {#- Sized copies of the logo, WebP where the server encodes it (blocks/logo.twig). #}
+      {% set logoDark = site_logo_image('dark') %}
+      {%- set logoSizes = '(max-width: 48rem) 40vw, 20rem' %}
       {# --has-dark modifier (site-identity spec §3): the template — not a CSS
          sibling probe — decides when the dark swap applies, so light-only
          markup stays byte-identical. #}
+      {%- set pictures = logo and logoDark
+        ? [[logo, ' site-logo--light'], [logoDark, ' site-logo--dark']]
+        : (logo ? [[logo, '']] : []) %}
       <a href="/" class="site-name{% if logo and logoDark %} site-name--has-dark{% endif %}">
-        {%- if logo and logoDark -%}
+        {%- for picture in pictures -%}
           {# Header chrome loads eagerly; brand imagery never claims fetchpriority
              (storefront-performance spec §4). #}
-          <img class="site-logo site-logo--light" src="{{ logo }}" alt="{{ site.name }}" loading="eager">
-          <img class="site-logo site-logo--dark" src="{{ logoDark }}" alt="{{ site.name }}" loading="eager">
-        {%- elseif logo -%}
-          <img class="site-logo" src="{{ logo }}" alt="{{ site.name }}" loading="eager">
+          {%- set image = picture[0] -%}
+          {% if image.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ image.webp }}" sizes="{{ logoSizes }}">{% endif -%}
+          <img class="site-logo{{ picture[1] }}" src="{{ image.src }}"{% if image.srcset %} srcset="{{ image.srcset }}" sizes="{{ logoSizes }}"{% endif %} alt="{{ site.name }}" loading="eager">
+          {%- if image.webp ?? null %}</picture>{% endif -%}
         {%- else -%}
           {{ site.name }}
-        {%- endif -%}
+        {%- endfor -%}
       </a>
       {# Fallback nav (theme-runtime spec §7): a labelled landmark wrapped in
          the SAME details disclosure pattern the navigation block uses, so the

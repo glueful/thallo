@@ -99,7 +99,7 @@ final class TemplatePolicy
     ];
 
     public const FUNCTIONS = [
-        'menu', 'path', 'asset', 'facets', 'blocks', 'media', 'site_logo', 'video_embed', 'icon',
+        'menu', 'path', 'asset', 'facets', 'blocks', 'media', 'site_logo', 'site_logo_image', 'video_embed', 'icon',
         'region_blocks', 'region_settings', 'region_style_classes', 'site_favicon', 'custom_css', 'form_render',
         'runtime_script', 'seo_head', 'font_faces_style',
         'shop_wishlist_scope', 'shop_wishlist_url', 'search_scope_state', 'layers_stylesheet_url', 'product_grid',

@@ -37,9 +37,13 @@
 <article class="thallo-block-blog_posts__card">
   {% if coverImg %}
     {% set priority = claim_priority_image() %}
-    <a class="thallo-block-blog_posts__image" href="{{ url|default('#') }}"><img src="{{ coverImg.src }}"
+    <a class="thallo-block-blog_posts__image" href="{{ url|default('#') }}">
+      {%- if coverImg.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ coverImg.webp }}" sizes="(max-width: 48rem) 100vw, 20rem">{% endif -%}
+      <img src="{{ coverImg.src }}"
       {%- if coverImg.srcset %} srcset="{{ coverImg.srcset }}" sizes="(max-width: 48rem) 100vw, 20rem"{% endif %}
-      alt=""{% if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}></a>
+      alt=""{% if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+      {%- if coverImg.webp ?? null %}</picture>{% endif -%}
+    </a>
   {% endif %}
   <div class="thallo-block-blog_posts__body">
     {% if f.categories is defined and f.categories is not empty %}

@@ -55,10 +55,12 @@
   </div>
   {% elseif img %}
     {% set priority = claim_priority_image() %}
+    {% if img.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ img.webp }}" sizes="100vw">{% endif -%}
     <img class="{{ bgClass }}" src="{{ img.src }}"
          {%- if img.srcset %} srcset="{{ img.srcset }}" sizes="100vw"{% endif %}
          alt="" aria-hidden="true"
          {%- if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+    {%- if img.webp ?? null %}</picture>{% endif %}
   {% endif %}
   {% if overlay %}<div class="thallo-block-container__overlay"></div>{% endif %}
   <div class="thallo-block-container__inner{{ style_classes('inner') }}"{{ style_attrs('inner') }}{{ slot_attrs('content') }}>{{ blocks(data.content) }}</div>

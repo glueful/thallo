@@ -1,9 +1,15 @@
-{% set logo = site_logo() %}
-{% set logoDark = site_logo('dark') %}
+{# Sized copies of the logo (site_logo_image()), WebP where the server encodes it: a header loads
+   a few kilobytes, not the full upload, on every page. An SVG logo stays the one file. #}
+{% set logo = site_logo_image() %}
+{% set logoDark = site_logo_image('dark') %}
 {# Positional loading (storefront-performance spec §4): header chrome loads eagerly,
    body/footer placements lazy — brand imagery NEVER claims fetchpriority. #}
 {% set logoLoading = region_slug|default(null) == 'header' ? 'eager' : 'lazy' %}
-{% set inner %}{% if logo and logoDark %}<img class="thallo-block-logo__image thallo-block-logo__image--light" src="{{ logo }}" alt="{{ site.name|default('') }}" loading="{{ logoLoading }}"{% if logoLoading == 'lazy' %} decoding="async"{% endif %}><img class="thallo-block-logo__image thallo-block-logo__image--dark" src="{{ logoDark }}" alt="{{ site.name|default('') }}" loading="{{ logoLoading }}"{% if logoLoading == 'lazy' %} decoding="async"{% endif %}>{% elseif logo %}<img class="thallo-block-logo__image" src="{{ logo }}" alt="{{ site.name|default('') }}" loading="{{ logoLoading }}"{% if logoLoading == 'lazy' %} decoding="async"{% endif %}>{% else %}<span class="thallo-block-logo__name">{{ site.name|default('') }}</span>{% endif %}{% endset %}
+{% set logoSizes = '(max-width: 48rem) 40vw, 20rem' %}
+{% set pictures = logo and logoDark
+  ? [[logo, ' thallo-block-logo__image--light'], [logoDark, ' thallo-block-logo__image--dark']]
+  : (logo ? [[logo, '']] : []) %}
+{% set inner %}{% for picture in pictures %}{% set image = picture[0] %}{% if image.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ image.webp }}" sizes="{{ logoSizes }}">{% endif %}<img class="thallo-block-logo__image{{ picture[1] }}" src="{{ image.src }}"{% if image.srcset %} srcset="{{ image.srcset }}" sizes="{{ logoSizes }}"{% endif %} alt="{{ site.name|default('') }}" loading="{{ logoLoading }}"{% if logoLoading == 'lazy' %} decoding="async"{% endif %}>{% if image.webp ?? null %}</picture>{% endif %}{% endfor %}{% if pictures is empty %}<span class="thallo-block-logo__name">{{ site.name|default('') }}</span>{% endif %}{% endset %}
 <div class="thallo-block thallo-block-logo thallo-block-logo--{{ data.size|default('medium') }}{% if logo and logoDark %} thallo-block-logo--has-dark{% endif %}{{ style_classes('root') }}"{{ style_attrs('root') }}>
   {% if data.link_home is not defined or data.link_home %}<a class="thallo-block-logo__link" href="/">{{ inner }}</a>{% else %}{{ inner }}{% endif %}
 </div>

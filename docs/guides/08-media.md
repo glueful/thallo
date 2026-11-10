@@ -88,6 +88,16 @@ browser picks.
   picture out rather than printing a broken one.
 - Only JPEG, PNG, GIF and WebP get candidates. An SVG is served as it is.
 - A width above `max_width` in `config/uploads.php` — 2048 — is dropped from the list.
+- A JPEG or PNG also gets the same widths as WebP, `?width=768&format=webp`, inside a
+  `<picture>` beside the `<img>`. Every current browser takes the WebP copy, often a tenth of the
+  size of a PNG photo; one that cannot reads WebP falls back to the `<img>` in the upload's
+  format. It needs an image driver that writes WebP (most PHP builds' GD does) and `webp` in
+  `allowed_formats`; without either, pages offer the upload's format alone. A GIF keeps its own
+  format, since a converted frame would stop an animation.
+
+The site logo, the shop's product cards and a product page's images and thumbnails get sized
+copies too, so a header or a product grid loads a few kilobytes per picture rather than each full
+upload.
 
 The resize happens on the first request for that width and is cached for `cache_ttl`, seven
 days. Both the original and the variants answer with `Cache-Control: public, max-age=86400`, so

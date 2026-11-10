@@ -6,12 +6,18 @@
 {% set aspect = ({'4:3': null, '1:1': '1-1', 'natural': 'natural'}[data.aspect|default('4:3')] ?? null) %}
 {% if product and product.coverUrl %}
 <div class="thallo-block thallo-block-product_gallery shop-product__gallery{% if aspect %} shop-product__gallery--{{ aspect }}{% endif %}{{ style_classes('root') }}"{{ style_attrs('root') }} data-shop-gallery>
+  {# Sized copies (WebP where the server encodes it); shop.js swaps all three on a thumb click. #}
+  {%- set image = product.coverImage ?? null -%}
+  {%- set sizes = '(max-width: 48rem) 100vw, 50vw' -%}
+  {% if image and image.webp %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ image.webp }}" sizes="{{ sizes }}" data-shop-cover-webp>{% endif -%}
   <img
     class="shop-product__cover{{ style_classes('picture') }}"{{ style_attrs('picture') }}
     src="{{ product.coverUrl }}"
+    {%- if image and image.srcset %} srcset="{{ image.srcset }}" sizes="{{ sizes }}"{% endif %}
     alt="{{ product.name }}"
     data-shop-cover
   >
+  {%- if image and image.webp %}</picture>{% endif %}
   {% if not (data.hide_thumbnails|default(false)) and product.gallery|length > 1 %}
     <div class="shop-product__thumbs">
       {% for item in product.gallery %}
@@ -23,7 +29,9 @@
           aria-current="{{ loop.first ? 'true' : 'false' }}"
           aria-label="Show image {{ loop.index }} of {{ product.gallery|length }}"
         >
-          <img src="{{ item.url }}" alt="" loading="lazy">
+          {% if item.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ item.webp }}" sizes="3.5rem">{% endif -%}
+          <img src="{{ item.url }}"{% if item.srcset ?? null %} srcset="{{ item.srcset }}" sizes="3.5rem"{% endif %} alt="" loading="lazy">
+          {%- if item.webp ?? null %}</picture>{% endif %}
         </button>
       {% endfor %}
     </div>

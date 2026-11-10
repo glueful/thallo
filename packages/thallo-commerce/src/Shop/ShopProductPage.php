@@ -14,6 +14,7 @@ use Thallo\Commerce\Links\ProductLinkService;
 use Thallo\Commerce\Shop\ViewModels\AddToCartViewModel;
 use Thallo\Commerce\Shop\ViewModels\ProductViewModel;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Delivery\MediaVariantUrlBatchResolver;
 use Thallo\Render\EntryBlocksRenderer;
 
 /**
@@ -38,8 +39,17 @@ final class ShopProductPage
         // API-prefix-correct) — the app binds it; autowiring injects it. Nullable so the pack
         // never hard-requires an app-only binding: without it, pages honestly render imageless.
         private readonly ?MediaUrlResolver $mediaUrls = null,
+        // The gallery's sized copies, WebP where the server encodes it — one query for every image.
+        // Soft-consumed the same way: without it each image is its single full-size URL.
+        private readonly ?MediaVariantUrlBatchResolver $mediaVariants = null,
     ) {
     }
+
+    /**
+     * The widths a gallery image is offered at: one set serves the thumbnails (about 4rem) and the
+     * main image (a phone's width, half a desktop page), each at up to three times on a dense screen.
+     */
+    public const GALLERY_WIDTHS = [160, 320, 640, 960, 1280, 1600];
 
     /**
      * @param array<string,mixed> $product a live, buyer-available, active commerce_products row
@@ -60,15 +70,30 @@ final class ShopProductPage
         $mediaRows = $this->media->forProduct($this->context, $tenant, $uuid);
         $coverRows = array_filter($mediaRows, static fn (array $r): bool => ($r['role'] ?? null) === 'cover');
         $galleryRows = array_filter($mediaRows, static fn (array $r): bool => ($r['role'] ?? null) !== 'cover');
+        $ordered = [...$coverRows, ...$galleryRows];
+        $images = $this->mediaVariants === null ? [] : $this->mediaVariants->variantsMany(
+            array_values(array_filter(array_map(
+                static fn (array $r): ?string => isset($r['blob_uuid']) ? (string) $r['blob_uuid'] : null,
+                $ordered,
+            ))),
+            self::GALLERY_WIDTHS,
+        );
         $gallery = [];
-        foreach ([...$coverRows, ...$galleryRows] as $row) {
+        $coverImage = null;
+        foreach ($ordered as $row) {
             $url = $this->mediaUrl($row);
             if ($url === null) {
                 continue;
             }
+            $image = $images[(string) ($row['blob_uuid'] ?? '')] ?? null;
+            if ($gallery === []) {
+                $coverImage = $image; // the first image leads, as gallery[0]['url'] does
+            }
             $gallery[] = [
                 'url' => $url,
                 'alt' => isset($row['alt']) && is_string($row['alt']) && $row['alt'] !== '' ? $row['alt'] : null,
+                'srcset' => $image['srcset'] ?? null,
+                'webp' => $image['webp'] ?? null,
             ];
         }
 
@@ -80,6 +105,7 @@ final class ShopProductPage
             $this->urls,
             $addToCart,
             $gallery,
+            $coverImage,
         );
 
         $enrichment = $this->resolveEnrichment($tenant, $uuid);

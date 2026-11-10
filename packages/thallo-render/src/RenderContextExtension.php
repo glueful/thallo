@@ -436,6 +436,7 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('media_text', $this->mediaText(...)),
             new TwigFunction('claim_priority_image', $this->claimPriorityImage(...), ['needs_context' => true]),
             new TwigFunction('site_logo', $this->siteLogo(...)),
+            new TwigFunction('site_logo_image', $this->siteLogoImage(...)),
             new TwigFunction('video_embed', $this->videoEmbed(...)),
             new TwigFunction('map_embed', $this->mapEmbed(...)),
             new TwigFunction('icon', $this->icon(...)), // NO is_safe — safety travels in the Markup value
@@ -1691,17 +1692,40 @@ final class RenderContextExtension extends AbstractExtension
      * including NULL for non-image blobs (never a media() fallback that would emit
      * <img src="…pdf">).
      *
+     * `webp` (always present, null when there is none) is the same candidates as WebP, for a
+     * <source type="image/webp"> beside the <img>.
+     *
      * @param list<int> $widths
-     * @return array{src: string, srcset: ?string}|null
+     * @return array{src: string, srcset: ?string, webp: ?string}|null
      */
     public function mediaImage(string $uuid, array $widths): ?array
     {
         $widths = self::normalizeWidths($widths);
         if ($this->mediaVariants === null) {
             $src = $this->media($uuid);
-            return $src === null ? null : ['src' => $src, 'srcset' => null];
+            return $src === null ? null : ['src' => $src, 'srcset' => null, 'webp' => null];
         }
-        return $this->mediaVariants->variants($uuid, $widths);
+        $image = $this->mediaVariants->variants($uuid, $widths);
+        return $image === null ? null : $image + ['webp' => null];
+    }
+
+    /** The logo's widths: a header logo is at most about 20rem wide, twice that on a dense screen. */
+    private const LOGO_WIDTHS = [160, 320, 480, 640, 960];
+
+    /**
+     * The site logo as {@see mediaImage()}: sized copies, so a header does not load the full
+     * upload on every page. Null when there is no logo for $variant, as {@see siteLogo()}.
+     *
+     * @return array{src: string, srcset: ?string, webp: ?string}|null
+     */
+    public function siteLogoImage(?string $variant = null): ?array
+    {
+        $variant ??= 'light';
+        if (!in_array($variant, ['light', 'dark'], true)) {
+            return null;
+        }
+        $uuid = $this->siteLogo?->siteLogoUuid($variant);
+        return $uuid === null ? null : $this->mediaImage($uuid, self::LOGO_WIDTHS);
     }
 
     /**

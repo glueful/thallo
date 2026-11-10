@@ -50,7 +50,7 @@ final class MediaImageAndPriorityClaimTest extends AppTestCase
     {
         $ext = $this->extension(variantResolver: null);
         self::assertSame(
-            ['src' => '/api/blobs/plainimg0001', 'srcset' => null],
+            ['src' => '/api/blobs/plainimg0001', 'srcset' => null, 'webp' => null],
             $ext->mediaImage('plainimg0001', [320]),
         );
         self::assertNull($ext->mediaImage('missing00000', [320]));
@@ -65,7 +65,7 @@ final class MediaImageAndPriorityClaimTest extends AppTestCase
         self::assertSame('/api/blobs/goodimg00001?width=320 320w', $candidate['srcset']);
         self::assertNull($ext->mediaImage('nonimage0000', [320]), 'non-image omitted, never a media() fallback');
         self::assertSame(
-            ['src' => '/api/blobs/clamped00000', 'srcset' => null],
+            ['src' => '/api/blobs/clamped00000', 'srcset' => null, 'webp' => null],
             $ext->mediaImage('clamped00000', [320]),
         );
     }

@@ -41,10 +41,12 @@
     {% if cover %}
       {% set priority = claim_priority_image() %}
       <figure class="post__cover">
+        {% if cover.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ cover.webp }}" sizes="(max-width: 72rem) 100vw, 72rem">{% endif -%}
         <img src="{{ cover.src }}"
              {%- if cover.srcset %} srcset="{{ cover.srcset }}" sizes="(max-width: 72rem) 100vw, 72rem"{% endif %}
              alt=""
              {%- if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+        {%- if cover.webp ?? null %}</picture>{% endif %}
       </figure>
     {% endif %}
 

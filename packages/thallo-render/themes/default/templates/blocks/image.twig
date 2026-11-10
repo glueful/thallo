@@ -21,11 +21,14 @@
 <figure class="thallo-block thallo-block-image{{ fill ? ' thallo-block-image--fill' }}{{ style_classes('root') }}"{{ style_attrs('root') }}>
   {% if img %}
     {% set priority = claim_priority_image() %}
+    {% set sizes = width > 0 ? '(max-width: ' ~ width ~ 'px) 100vw, ' ~ width ~ 'px' : '(max-width: 64rem) 100vw, 60rem' %}
+    {% if img.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ img.webp }}" sizes="{{ sizes }}">{% endif -%}
     <img class="thallo-block-image__img{{ style_classes('picture') }}"{{ style_attrs('picture') }} src="{{ img.src }}"
-         {%- if img.srcset %} srcset="{{ img.srcset }}" sizes="{{ width > 0 ? '(max-width: ' ~ width ~ 'px) 100vw, ' ~ width ~ 'px' : '(max-width: 64rem) 100vw, 60rem' }}"{% endif %}
+         {%- if img.srcset %} srcset="{{ img.srcset }}" sizes="{{ sizes }}"{% endif %}
          {%- if width > 0 %} width="{{ width }}"{% endif %}{% if height > 0 %} height="{{ height }}"{% endif %}
          alt="{{ data.alt ?: words.alt }}"
          {%- if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+    {%- if img.webp ?? null %}</picture>{% endif %}
   {% endif %}
   {% if data.caption %}<figcaption>{{ data.caption|editable_text('caption') }}</figcaption>
   {%- elseif words.caption %}<figcaption>{{ words.caption }}</figcaption>{% endif %}

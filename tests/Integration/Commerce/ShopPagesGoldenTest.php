@@ -43,9 +43,9 @@ final class ShopPagesGoldenTest extends AppTestCase
      * its product's uuid (the wishlist toggle), and a direct-mode card its variant's too (the cart form).
      */
     private const SUBSTITUTIONS = [
-        'index' => ['ids' => 46, 'blobs' => 1, 'assets' => 6, 'scope' => 1],
+        'index' => ['ids' => 46, 'blobs' => 11, 'assets' => 6, 'scope' => 1],
         'index-page2' => ['ids' => 4, 'blobs' => 0, 'assets' => 6, 'scope' => 1],
-        'category' => ['ids' => 3, 'blobs' => 1, 'assets' => 6, 'scope' => 1],
+        'category' => ['ids' => 3, 'blobs' => 11, 'assets' => 6, 'scope' => 1],
         'category-empty' => ['ids' => 0, 'blobs' => 0, 'assets' => 6, 'scope' => 1],
     ];
 
