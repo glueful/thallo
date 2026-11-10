@@ -29,6 +29,7 @@ final class ProductCardViewModel
      * @param array{average: float, count: int}|null $rating
      * @param list<array{name: string, slug: string}> $categories
      * @param list<array{name: string, slug: string}> $tags
+     * @param array{src: string, srcset: ?string, webp: ?string}|null $coverImage
      */
     private function __construct(
         public readonly string $uuid,
@@ -46,6 +47,7 @@ final class ProductCardViewModel
         public readonly ?string $createdAt,
         public readonly array $categories,
         public readonly array $tags,
+        public readonly ?array $coverImage = null,
     ) {
     }
 
@@ -81,6 +83,7 @@ final class ProductCardViewModel
             createdAt: $createdAt,
             categories: $categories,
             tags: $tags,
+            coverImage: $product->coverImage,
         );
     }
 
@@ -95,6 +98,7 @@ final class ProductCardViewModel
      *   priceFormatted: ?string, compareAtFormatted: ?string, categoryName: ?string, cartMode: string,
      *   directVariantUuid: ?string, inStock: bool, onSale: bool, createdAt: ?string,
      *   categories: list<array{name: string, slug: string}>, tags: list<array{name: string, slug: string}>,
+     *   coverImage: array{src: string, srcset: ?string, webp: ?string}|null,
      * }
      */
     public function toCardItem(): array
@@ -118,6 +122,8 @@ final class ProductCardViewModel
             // What a card's Product tags block reads.
             'categories' => $this->categories,
             'tags' => $this->tags,
+            // The cover's sized copies, what a card's image reads.
+            'coverImage' => $this->coverImage,
         ];
     }
 

@@ -118,7 +118,10 @@ final class FieldBlocksRenderTest extends AppTestCase
         self::assertStringContainsString('1,200', $html);
         self::assertStringContainsString('thallo-block-entry_cover--16-9', $html);
         // The cover is the entry's own media, served through the blob route (under whatever API prefix).
-        self::assertMatchesRegularExpression('~<img [^>]*src="[^"]*/v1/blobs/' . preg_quote($cover, '~') . '"~', $html);
+        self::assertMatchesRegularExpression(
+            '~<img [^>]*src="[^"]*/v1/blobs/' . preg_quote($cover, '~') . '\?v=[a-f0-9]{12}"~',
+            $html,
+        );
     }
 
     public function testAnEmptyFieldIsNothingOnTheSiteAndNamedOnTheLayoutStage(): void

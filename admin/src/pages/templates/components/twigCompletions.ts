@@ -15,6 +15,7 @@ const FUNCTIONS = [
   'blocks',
   'media',
   'site_logo',
+  'site_logo_image',
   'video_embed',
   'icon',
   'region_blocks',

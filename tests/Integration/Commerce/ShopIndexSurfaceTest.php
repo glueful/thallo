@@ -139,7 +139,7 @@ final class ShopIndexSurfaceTest extends AppTestCase
         // The card's closed allowlist, key for key.
         self::assertSame(
             ['uuid', 'name', 'url', 'coverUrl', 'rating', 'priceFormatted', 'compareAtFormatted', 'categoryName',
-                'cartMode', 'directVariantUuid', 'inStock', 'onSale', 'createdAt', 'categories', 'tags'],
+                'cartMode', 'directVariantUuid', 'inStock', 'onSale', 'createdAt', 'categories', 'tags', 'coverImage'],
             array_keys($context['products'][0]),
         );
         self::assertSame('direct', $context['products'][0]['cartMode']);

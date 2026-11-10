@@ -10,10 +10,12 @@
       {% if thumb %}
         {% set priority = claim_priority_image() %}
         <div class="listing-row__media">
+          {% if thumb.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ thumb.webp }}" sizes="(max-width: 48rem) 96px, 160px">{% endif -%}
           <img src="{{ thumb.src }}"
                {%- if thumb.srcset %} srcset="{{ thumb.srcset }}" sizes="(max-width: 48rem) 96px, 160px"{% endif %}
                alt=""
                {%- if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+          {%- if thumb.webp ?? null %}</picture>{% endif %}
         </div>
       {% endif %}
       <div class="listing-row__content">

@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shop product gallery</title>
+<style>.thallo-picture { display: contents; } img { display: block; } .shop-product__thumbs img { width: 3.5rem; }</style>
+<!-- A product page's gallery as shop/product.twig renders it with sized copies: the cover a WebP
+     <source> and a srcset, each thumb its own, and one image (a GIF) with no WebP copy. shop.js
+     moves a thumb's srcset and WebP <source> to the cover. The spec answers every /blobs/ URL. -->
+<main>
+  <div class="shop-product__gallery" data-shop-gallery>
+    <picture class="thallo-picture"><source type="image/webp" srcset="/blobs/aaa?width=320&amp;format=webp 320w, /blobs/aaa?width=640&amp;format=webp 640w" sizes="20rem" data-shop-cover-webp><img
+      class="shop-product__cover"
+      src="/blobs/aaa" srcset="/blobs/aaa?width=320 320w, /blobs/aaa?width=640 640w" sizes="20rem"
+      alt="Cover" data-shop-cover></picture>
+    <div class="shop-product__thumbs">
+      <button type="button" data-shop-thumb data-src="/blobs/aaa" data-alt="Cover" aria-current="true"
+        aria-label="One"><picture class="thallo-picture"><source type="image/webp" srcset="/blobs/aaa?width=320&amp;format=webp 320w, /blobs/aaa?width=640&amp;format=webp 640w" sizes="3.5rem"><img
+        src="/blobs/aaa" srcset="/blobs/aaa?width=320 320w, /blobs/aaa?width=640 640w" sizes="3.5rem" alt=""></picture></button>
+      <button type="button" data-shop-thumb data-src="/blobs/bbb" data-alt="Second" aria-current="false"
+        aria-label="Two"><picture class="thallo-picture"><source type="image/webp" srcset="/blobs/bbb?width=320&amp;format=webp 320w, /blobs/bbb?width=640&amp;format=webp 640w" sizes="3.5rem"><img
+        src="/blobs/bbb" srcset="/blobs/bbb?width=320 320w, /blobs/bbb?width=640 640w" sizes="3.5rem" alt=""></picture></button>
+      <button type="button" data-shop-thumb data-src="/blobs/ccc" data-alt="A GIF" aria-current="false"
+        aria-label="Three"><img src="/blobs/ccc" srcset="/blobs/ccc?width=320 320w, /blobs/ccc?width=640 640w" sizes="3.5rem" alt=""></button>
+    </div>
+  </div>
+</main>
+<script src="/packages/thallo-commerce/assets/shop.js" defer></script>

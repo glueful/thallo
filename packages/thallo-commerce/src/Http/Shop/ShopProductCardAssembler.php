@@ -18,6 +18,7 @@ use Thallo\Commerce\Shop\ViewModels\ProductGridCard;
 use Thallo\Commerce\Shop\ViewModels\ProductViewModel;
 use Thallo\Contracts\Delivery\MediaUrlBatchResolver;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Delivery\MediaVariantUrlBatchResolver;
 
 /**
  * The ONE batched product-card pipeline (storefront-v1 Task 5, shared by Task 7) — extracted
@@ -47,6 +48,9 @@ final class ShopProductCardAssembler
         // Soft-consumed exactly like $mediaUrls above — when unbound, cards() falls back to
         // the per-row resolver; the pack never hard-requires the app-only binding.
         private readonly ?MediaUrlBatchResolver $mediaUrlBatches = null,
+        // The covers' sized copies, WebP where the server encodes it, in one more query: a grid
+        // otherwise loads every product photo at its full upload size. Soft-consumed the same way.
+        private readonly ?MediaVariantUrlBatchResolver $mediaVariantBatches = null,
     ) {
     }
 
@@ -67,9 +71,9 @@ final class ShopProductCardAssembler
             $tenant,
             $productUuids,
         );
-        $coverUrls = $this->resolveCoverUrls(
-            $this->media->primaryForProducts($this->context, $tenant, $productUuids),
-        );
+        $primaryMedia = $this->media->primaryForProducts($this->context, $tenant, $productUuids);
+        $coverUrls = $this->resolveCoverUrls($primaryMedia);
+        $coverImages = $this->resolveCoverImages($primaryMedia);
         $currency = CommerceSettings::currency($this->context);
         $stocked = $this->stockedVariants($tenant, $variantsByProduct);
         $categories = $labels
@@ -102,7 +106,13 @@ final class ShopProductCardAssembler
                 $currency,
             );
             $items[] = ProductCardViewModel::fromProduct(
-                ProductViewModel::fromRow($product, $variants, $coverUrls[$uuid] ?? null, $this->urls),
+                ProductViewModel::fromRow(
+                    $product,
+                    $variants,
+                    $coverUrls[$uuid] ?? null,
+                    $this->urls,
+                    coverImage: isset($coverUrls[$uuid]) ? ($coverImages[$uuid] ?? null) : null,
+                ),
                 isset($firstCategories[$uuid]) ? $firstCategories[$uuid]['name'] : null,
                 $addToCart,
                 $inStock,
@@ -196,6 +206,37 @@ final class ShopProductCardAssembler
         return array_map(
             static fn (array $row): ?string => isset($row['blob_uuid'])
                 ? ($urlsByBlob[(string) $row['blob_uuid']] ?? null)
+                : null,
+            $primaryMedia,
+        );
+    }
+
+    /**
+     * The widths a card's cover is offered at: a grid card is a phone's full width, a third of a
+     * desktop row, up to three times that on a dense screen.
+     */
+    public const CARD_WIDTHS = [240, 360, 480, 720, 960];
+
+    /**
+     * @param array<string, array<string,mixed>> $primaryMedia primary media row per product uuid
+     * @return array<string, array{src: string, srcset: ?string, webp: ?string}|null> per product uuid
+     */
+    private function resolveCoverImages(array $primaryMedia): array
+    {
+        $blobUuids = [];
+        foreach ($primaryMedia as $row) {
+            if (isset($row['blob_uuid'])) {
+                $blobUuids[] = (string) $row['blob_uuid'];
+            }
+        }
+        if ($this->mediaVariantBatches === null || $blobUuids === []) {
+            return [];
+        }
+        $byBlob = $this->mediaVariantBatches->variantsMany($blobUuids, self::CARD_WIDTHS);
+
+        return array_map(
+            static fn (array $row): ?array => isset($row['blob_uuid'])
+                ? ($byBlob[(string) $row['blob_uuid']] ?? null)
                 : null,
             $primaryMedia,
         );

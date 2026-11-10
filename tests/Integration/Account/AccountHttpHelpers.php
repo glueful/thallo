@@ -127,7 +127,13 @@ trait AccountHttpHelpers
      */
     private function postSameOrigin(string $path, array $body = [], array $cookies = [], array $headers = []): Response
     {
-        return $this->post($path, $body, $cookies, $headers + ['Sec-Fetch-Site' => 'same-origin']);
+        // Both headers, as a browser sends on a same-origin form POST: the account's anonymous
+        // forms trust Sec-Fetch-Site, while the framework's CSRF check on signed-in forms (1.91+)
+        // reads Origin and no longer excuses a cookie session that sends none.
+        return $this->post($path, $body, $cookies, $headers + [
+            'Sec-Fetch-Site' => 'same-origin',
+            'Origin' => 'http://localhost',
+        ]);
     }
 
     /**

@@ -43,6 +43,79 @@ describe('responsiveWrites', () => {
     )
   })
 
+  describe('Order and Push, set for one screen size only', () => {
+    // A header is arranged per device: the menu button may lead on a phone while the logo leads on
+    // Desktop. So these two never reach another size: no copy to base, and a size above the one
+    // edited keeps what it showed by being pinned to it.
+    const choice = (value: string) => ({ type: 'choice' as const, value })
+    const order = (o: Record<string, unknown>) => ({ style: { layout: { order: o } } })
+
+    it('saves a value set at Desktop for Desktop alone', () => {
+      expect(responsiveWrites({}, 'layout.order', 'lg', choice('first'))).toEqual([
+        ['lg', choice('first')],
+      ])
+      expect(responsiveWrites({}, 'layout.push', 'lg', choice('after'))).toEqual([
+        ['lg', choice('after')],
+      ])
+    })
+
+    it('pins the larger sizes to the neutral value when nothing is set', () => {
+      expect(responsiveWrites({}, 'layout.order', 'base', choice('first'))).toEqual([
+        ['base', choice('first')],
+        ['md', choice('default')],
+        ['lg', choice('default')],
+      ])
+      expect(responsiveWrites({}, 'layout.push', 'md', choice('both'))).toEqual([
+        ['md', choice('both')],
+        ['lg', choice('none')],
+      ])
+    })
+
+    it('pins a larger size to what it inherited, and leaves a size with its own value alone', () => {
+      // Desktop inherited "last" from Mobile; a Tablet edit must not change Desktop.
+      expect(
+        responsiveWrites(order({ base: choice('last') }), 'layout.order', 'md', choice('first')),
+      ).toEqual([
+        ['md', choice('first')],
+        ['lg', choice('last')],
+      ])
+      expect(
+        responsiveWrites(
+          order({ md: choice('default'), lg: choice('last') }),
+          'layout.order',
+          'base',
+          choice('first'),
+        ),
+      ).toEqual([['base', choice('first')]])
+      // Desktop's own value; Tablet inherits Mobile's "last".
+      expect(
+        responsiveWrites(
+          order({ base: choice('last'), lg: choice('first') }),
+          'layout.order',
+          'base',
+          choice('default'),
+        ),
+      ).toEqual([
+        ['base', choice('default')],
+        ['md', choice('last')],
+      ])
+    })
+
+    it('removes a value at that size only', () => {
+      expect(
+        responsiveWrites(order({ base: choice('first') }), 'layout.order', 'base', null),
+      ).toEqual([['base', null]])
+    })
+
+    it('reads a part’s own record', () => {
+      const settings = { parts: { links: { layout: { order: { base: choice('last') } } } } }
+      expect(responsiveWrites(settings, 'layout.order', 'md', choice('first'), 'links')).toEqual([
+        ['md', choice('first')],
+        ['lg', choice('last')],
+      ])
+    })
+  })
+
   it('reads a part’s own record', () => {
     const settings = {
       parts: { links: { spacing: { padding: { top: { base: pad('space.lg') } } } } },

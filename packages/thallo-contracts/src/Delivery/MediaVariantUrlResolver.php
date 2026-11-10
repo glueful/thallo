@@ -11,22 +11,27 @@ namespace Thallo\Contracts\Delivery;
  * produces the base src and every srcset candidate — per-width calls would be N+1 reads.
  *
  * Three pinned outcomes:
- *  - Valid image with surviving candidates: {src, srcset: string}.
+ *  - Valid image with surviving candidates: {src, srcset: string, webp: ?string}.
  *  - Valid image with NO surviving candidates (the implementation is bound but resizing
  *    is unavailable/disabled, or every width fell to the server clamp):
- *    {src, srcset: null} — the base URL stands; null stays reserved for invalid media.
+ *    {src, srcset: null, webp: null} — the base URL stands; null stays reserved for invalid
+ *    media.
  *  - Missing, private, deleted, unservable, or non-image blob: null (the caller omits
  *    the image element — never an <img> pointing at a non-image).
  *
  * Implementations must never emit ?width= candidate URLs unless real resizing will serve
  * them (a candidate the server would ignore or clamp lies to the browser's selection
  * algorithm and multiplies cache keys for zero payload win).
+ *
+ * `webp` is the same candidates converted to WebP, for a <source type="image/webp"> beside the
+ * <img>: null unless the server can encode WebP, and for a source that gains nothing or would
+ * lose something (a WebP already, an animated GIF). A caller that predates it may ignore it.
  */
 interface MediaVariantUrlResolver
 {
     /**
      * @param list<int> $widths candidate widths in px, ascending
-     * @return array{src: string, srcset: ?string}|null
+     * @return array{src: string, srcset: ?string, webp?: ?string}|null
      */
     public function variants(string $uuid, array $widths): ?array;
 }

@@ -76,7 +76,8 @@ stays where it is.
 
 With nothing set, the row's free space goes after the logo: the logo starts the row, and the menu
 button and anything after it end it. Two settings in a block's **Layout** tab, under **As an
-item**, move things from there. Both are per screen size:
+item**, move things from there. Both are set per screen size, and a change applies to the size
+the stage is at and no other:
 
 - **Order** — **First** or **Last** moves the block to the front or the back of the row; **Default**
   puts it back where it sits in the list.
@@ -85,10 +86,9 @@ item**, move things from there. Both are per screen size:
   left; **None** gives it none.
 
 To put the menu button before the logo on phones only: select the Navigation block with the stage
-at mobile width and set **Order** to **First**, then switch the stage to tablet width and set
-**Order** to **Default**. A setting made at mobile width applies to wider screens too until a wider
-one replaces it. To centre the logo between the button and the icons, set the Logo's **Push** to
-**Both sides** the same way.
+at mobile width and set **Order** to **First**. Tablet and desktop keep their arrangement: the
+editor saves what they showed alongside the phone's setting. To centre the logo between the button
+and the icons on phones, set the Logo's **Push** to **Both sides** the same way.
 
 The button's own look is the Navigation block's **Menu button** section, in its **Style** tab: the
 icon's colour (**Text colour**), **Background**, the border, **Corners**, **Icon size** (Small,

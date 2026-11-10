@@ -380,7 +380,7 @@ final class ListingArchivePagesTest extends AppTestCase
             'the second resolvable listing thumbnail is not another priority image',
         );
         self::assertStringContainsString('alt=""', $one);
-        self::assertStringContainsString('?width=160 160w', $one); // real candidates at thumb widths
+        self::assertStringContainsString('&amp;width=160 160w', $one); // real candidates at thumb widths
         self::assertStringContainsString('sizes="(max-width: 48rem) 96px, 160px"', $one);
         self::assertStringContainsString('listing-row__excerpt', $one); // A's excerpt
         self::assertStringContainsString('listing-row--linked', $one);

@@ -46,10 +46,13 @@
     {% elseif img %}
       {% set priority = claim_priority_image() %}
       <div class="thallo-block-hero__media{{ style_classes('media') }}"{{ style_attrs('media') }}>
+        {% set sizes = '(max-width: 48rem) 100vw, 40rem' %}
+        {% if img.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ img.webp }}" sizes="{{ sizes }}">{% endif -%}
         <img src="{{ img.src }}"
-             {%- if img.srcset %} srcset="{{ img.srcset }}" sizes="(max-width: 48rem) 100vw, 40rem"{% endif %}
+             {%- if img.srcset %} srcset="{{ img.srcset }}" sizes="{{ sizes }}"{% endif %}
              alt=""
              {%- if priority %} loading="eager" fetchpriority="high"{% else %} loading="lazy" decoding="async"{% endif %}>
+        {%- if img.webp ?? null %}</picture>{% endif %}
       </div>
     {% endif %}
   </div>

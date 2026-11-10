@@ -15,10 +15,12 @@
   <section class="account{% if not bare %} account--chrome{% endif %}">
     <div class="account__card">
       {% if bare %}
-        {% set logo = site_logo() %}
+        {% set logo = site_logo_image() %}
         <div class="account__brand">
           {% if logo %}
-            <img class="account__logo" src="{{ logo }}" alt="{{ site.name }}">
+            {% if logo.webp ?? null %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ logo.webp }}" sizes="14rem">{% endif -%}
+            <img class="account__logo" src="{{ logo.src }}"{% if logo.srcset %} srcset="{{ logo.srcset }}" sizes="14rem"{% endif %} alt="{{ site.name }}">
+            {%- if logo.webp ?? null %}</picture>{% endif %}
           {% else %}
             <span class="account__brand-name">{{ site.name }}</span>
           {% endif %}

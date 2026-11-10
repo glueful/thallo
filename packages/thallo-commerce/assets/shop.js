@@ -1040,6 +1040,25 @@
       if (!cover || !src) {
         return;
       }
+      // The main image's sized copies follow the thumb's own: its srcset, and the WebP <source>
+      // beside it — a browser picks from those before src, so swapping src alone would change nothing.
+      var thumbImg = qs(thumb, 'img');
+      var thumbWebp = qs(thumb, 'source');
+      var srcset = thumbImg ? thumbImg.getAttribute('srcset') : null;
+      var webp = thumbWebp ? thumbWebp.getAttribute('srcset') : null;
+      var source = qs(gallery, '[data-shop-cover-webp]');
+      if (source) {
+        if (webp) {
+          source.setAttribute('srcset', webp);
+        } else {
+          source.removeAttribute('srcset');
+        }
+      }
+      if (srcset) {
+        cover.setAttribute('srcset', srcset);
+      } else {
+        cover.removeAttribute('srcset');
+      }
       cover.src = src;
       cover.alt = thumb.getAttribute('data-alt') || cover.alt;
       var thumbs = qsa(gallery, '[data-shop-thumb]');

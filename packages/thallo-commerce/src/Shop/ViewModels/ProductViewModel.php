@@ -19,7 +19,8 @@ final class ProductViewModel
 {
     /**
      * @param array{average: float, count: int}|null $rating
-     * @param list<array{url: string, alt: ?string}> $gallery
+     * @param list<array{url: string, src?: string, alt: ?string, srcset?: ?string, webp?: ?string}> $gallery
+     * @param array{src: string, srcset: ?string, webp: ?string}|null $coverImage
      */
     public function __construct(
         public readonly string $uuid,
@@ -49,6 +50,12 @@ final class ProductViewModel
          * computes direct/select/link/unavailable, never two divergent implementations.
          */
         public readonly ?AddToCartViewModel $addToCart = null,
+        /**
+         * The cover's sized copies (MediaVariantUrlBatchResolver): src, a srcset in the upload's
+         * format and one in WebP where the server encodes it. Null without the resolver, or when
+         * the cover does not resolve — templates then fall back to the plain `coverUrl`.
+         */
+        public readonly ?array $coverImage = null,
     ) {
     }
 
@@ -60,8 +67,9 @@ final class ProductViewModel
      *     through the {@see \Thallo\Contracts\Delivery\MediaUrlResolver} authority — never a
      *     hand-concatenated `/blobs/…` path, which missed the API prefix and ignored blob
      *     visibility), null when no image resolves
-     * @param list<array{url: string, alt: ?string}> $gallery resolved gallery image URLs,
-     *     cover-role rows first — only the product detail page passes a non-empty list
+     * @param list<array{url: string, src?: string, alt: ?string, srcset?: ?string, webp?: ?string}> $gallery resolved
+     *     gallery image URLs, cover-role rows first — only the product detail page passes a non-empty list
+     * @param array{src: string, srcset: ?string, webp: ?string}|null $coverImage the cover's sized copies
      */
     public static function fromRow(
         array $product,
@@ -70,6 +78,7 @@ final class ProductViewModel
         ShopUrlGenerator $urls,
         ?AddToCartViewModel $addToCart = null,
         array $gallery = [],
+        ?array $coverImage = null,
     ): self {
         [$priceFrom, $currency] = self::cheapestActivePrice($variants);
         $count = (int) ($product['rating_count'] ?? 0);
@@ -97,6 +106,7 @@ final class ProductViewModel
             rating: $rating,
             url: $urls->product((string) $product['slug']),
             addToCart: $addToCart,
+            coverImage: $coverImage,
         );
     }
 

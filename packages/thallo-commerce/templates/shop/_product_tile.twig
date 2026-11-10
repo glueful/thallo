@@ -18,8 +18,15 @@
     {%~ endif %}
     <span class="shop-grid__media{{ media_class|default('') }}">
       {% if product.coverUrl %}
-        <img class="shop-grid__image" src="{{ product.coverUrl }}" alt="{{ product.name }}"
+        {# Sized copies (WebP where the server encodes it): a card is a phone's width, or about a
+           quarter of a desktop row — never the full upload. #}
+        {%- set image = product.coverImage ?? null -%}
+        {%- set sizes = '(max-width: 48rem) 100vw, 24rem' -%}
+        {% if image and image.webp %}<picture class="thallo-picture"><source type="image/webp" srcset="{{ image.webp }}" sizes="{{ sizes }}">{% endif -%}
+        <img class="shop-grid__image" src="{{ image.src ?? product.coverUrl }}"
+             {%- if image and image.srcset %} srcset="{{ image.srcset }}" sizes="{{ sizes }}"{% endif %} alt="{{ product.name }}"
              loading="lazy" decoding="async">
+        {%- if image and image.webp %}</picture>{% endif %}
       {% else %}
         <span class="shop-grid__image shop-grid__image--empty" aria-hidden="true"></span>
       {% endif %}
