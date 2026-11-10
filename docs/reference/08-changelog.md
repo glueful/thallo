@@ -10,6 +10,40 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.107] - 2026-11-10 — Developer Preview
+
+Faster images: a JPEG or PNG on a page is also offered as WebP at the size it is shown, the logo and
+the shop load sized copies instead of each full upload, and every such image URL can be cached for a
+year by browsers and a CDN. Also **Order** and **Push** set per device. Requires glueful/framework
+1.92.
+
+### Added
+- **Images in WebP, at the size they are shown**: a JPEG or PNG on a page is also offered as WebP
+  at every width (`?width=…&format=webp`), in a `<picture>` beside the `<img>`, which keeps the
+  upload's format for a browser that cannot read WebP. A PNG photo's copy is often a tenth of the
+  size. It needs an image driver that writes WebP and `webp` in
+  `uploads.image_processing.allowed_formats`; without either, nothing changes. The site logo, the
+  shop's product cards, a product page's image and its thumbnails, which loaded each full upload,
+  now load sized copies too: a header logo is a few kilobytes on every page instead of the file you
+  uploaded. Template authors: `media_image()` returns `webp` beside `src` and `srcset`, and
+  `site_logo_image()` is new; `<picture class="thallo-picture">` is `display: contents`, so layout
+  and selectors see the `<img>` as before.
+- **Images cached for a year**: every image URL from `media_image()`, the site logo and the shop
+  names the file's version (`?v=`), which glueful/framework 1.92 answers with
+  `public, max-age=31536000, immutable`. Browsers stop asking again for images they already have,
+  and a CDN can serve them. Replacing an image changes its URL, so no one sees the old copy.
+  `media_url()` and the Delivery API's asset `url` stay plain. Behind Cloudflare, add one Cache Rule
+  for `/v1/blobs/` (see the media guide) so images are served from Cloudflare instead of your
+  server.
+
+### Changed
+- **Requires glueful/framework 1.92**, which also keeps private files out of shared caches.
+- **Order and Push are per device**: a block's **Order** and **Push** (Layout tab, As an item)
+  change the screen size being edited and no other. A Desktop or Tablet value is no longer copied
+  to phones, and a Mobile or Tablet value no longer reaches the wider sizes: each wider size without
+  a value of its own is saved with the one it showed. Putting a header's menu button first on Mobile
+  leaves Tablet and Desktop as they were. Every other setting keeps the 1.0.0-beta.105 rule.
+
 ## [1.0.0-beta.106] - 2026-10-14 — Developer Preview
 
 Updating from the admin without the setup: where PHP-FPM can write the site's code, the same thing

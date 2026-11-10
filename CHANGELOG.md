@@ -5,7 +5,12 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.107] - 2026-11-10 — Developer Preview
+
+Faster images: a JPEG or PNG on a page is also offered as WebP at the size it is shown, the logo and
+the shop load sized copies instead of each full upload, and every such image URL can be cached for a
+year by browsers and a CDN. Also **Order** and **Push** set per device. Requires glueful/framework
+1.92.
 
 ### Added
 - **Images in WebP, at the size they are shown**: a JPEG or PNG on a page is also offered as WebP
