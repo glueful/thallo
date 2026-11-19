@@ -5,6 +5,16 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Fixed
+- **Text on a white or black background in the other colour mode.** A block set to the White
+  background kept dark mode's near-white text, so in dark mode it was light grey on white (and a
+  Black background had dark text in light mode). Inside a White background (a block's or a hero
+  aside's) the light palette now applies, and inside a Black one the dark palette, whatever the
+  visitor's mode: text, muted text, lines, surfaces and the accent. A site's own colours apply to
+  both. Theme authors: see THEMING.md §8.2a; the style artifact is recompiled (compiler version 33).
+
 ## [1.0.0-beta.107] - 2026-11-10 — Developer Preview
 
 Faster images: a JPEG or PNG on a page is also offered as WebP at the size it is shown, the logo and

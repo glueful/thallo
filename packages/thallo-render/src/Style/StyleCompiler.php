@@ -47,7 +47,9 @@ final class StyleCompiler
     // 30: layout.order, layout.push and menu_button.size.
     // 31: overlay.tone and overlay.opacity.
     // 32: overlay.tone `color` and overlay.color.
-    public const VERSION = 32;
+    // 33: a white or black background re-resolves the colour tokens inside it (fixedSurfaceRules());
+    //     a text colour also names itself in --t-text.
+    public const VERSION = 33;
 
     /** The built-in typefaces' synthesis: the browser's default (an uploaded family's is `style`). */
     private const BUILT_IN_SYNTHESIS = 'weight style';
@@ -282,11 +284,40 @@ final class StyleCompiler
         foreach (['--t-surface', '--t-surface-default'] as $name) {
             $out .= "@property {$name} { syntax: '*'; inherits: false; }\n";
         }
-        $out .= self::rules('base') . self::fontRules($vocabulary);
+        $out .= self::fixedSurfaceRules($vocabulary) . self::rules('base') . self::fontRules($vocabulary);
         foreach (self::MEDIA as $bp => $min) {
             $out .= "@media (min-width: {$min}px) {\n" . self::rules($bp) . "}\n";
         }
         return $out . "}\n";
+    }
+
+    /**
+     * White and black look the same in both colour modes, so what sits on them must as well. The
+     * theme points its palette variables at its light set on a white background and its dark set on
+     * a black one (THEMING.md, "Fixed backgrounds"); the colour tokens, which :root resolved
+     * against the current mode, are re-resolved on those elements so everything inside follows.
+     * Only tokens that name a variable can change; a literal is the same everywhere. `:where()`
+     * keeps the rule at no specificity, so a text colour chosen on the same block wins, and one
+     * chosen on a block around it is read from `--t-text`, which the text utility sets.
+     */
+    private static function fixedSurfaceRules(ThemeVocabulary $vocabulary): string
+    {
+        $tokens = '';
+        foreach ($vocabulary->values() as $token => $value) {
+            if (str_starts_with($token, 'color.') && str_contains($value, 'var(')) {
+                $tokens .= self::variable($token) . ': ' . $value . '; ';
+            }
+        }
+        $out = '';
+        foreach (['white', 'black'] as $literal) {
+            $selectors = [];
+            foreach (['colors.surface', 'aside.surface'] as $path) {
+                $selectors[] = ClassNames::selector(ClassNames::for($path, $literal));
+            }
+            $out .= ':where(' . implode(', ', $selectors) . ') { ' . $tokens
+                . "color: var(--t-text, var(--t-color-text)); }\n";
+        }
+        return $out;
     }
 
     /**
@@ -635,6 +666,12 @@ final class StyleCompiler
         if ($path === 'backdrop.blur') {
             $blur = self::BLUR[$value];
             return "backdrop-filter: {$blur}; -webkit-backdrop-filter: {$blur};";
+        }
+        // A text colour names itself in an inherited variable as well as setting it, so a white or
+        // black background further in keeps the colour chosen around it (fixedSurfaceRules()).
+        if ($path === 'colors.text') {
+            $colour = 'var(' . self::variable($value) . ')';
+            return "--t-text: {$colour}; color: {$colour};";
         }
         // A background names its colour as well as painting it: the opacity utility mixes from it.
         if ($path === 'colors.surface') {
