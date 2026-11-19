@@ -616,7 +616,10 @@ final class StyleCompilerTest extends TestCase
             't-hover-bg-accent',
             '--t-surface: var(--t-color-accent); background: var(--t-color-accent);',
         ), $css);
-        self::assertStringContainsString($branch('t-hover-fg-accent', 'color: var(--t-color-accent);'), $css);
+        self::assertStringContainsString(
+            $branch('t-hover-fg-accent', '--t-text: var(--t-color-accent); color: var(--t-color-accent);'),
+            $css,
+        );
         self::assertStringContainsString($branch('t-hover-bc-accent', 'border-color: var(--t-color-accent);'), $css);
         self::assertStringContainsString($branch('t-hover-opacity-70', 'opacity: 0.7;'), $css);
     }
@@ -650,10 +653,12 @@ final class StyleCompilerTest extends TestCase
         // A Rich text block made a link is covered by one (`.thallo-block-link`): the block cannot take
         // focus, its cover does, so the block's hover look shows on the cover's focus too. A rule of its
         // own, so a browser without :has() still keeps the focus and forced branches.
-        $rule = '.t-hover-fg-accent:has(> .thallo-block-link:focus-visible) { color: var(--t-color-accent); }';
+        $rule = '.t-hover-fg-accent:has(> .thallo-block-link:focus-visible) { '
+            . '--t-text: var(--t-color-accent); color: var(--t-color-accent); }';
         self::assertStringContainsString("\n{$rule}\n", StyleCompiler::compile($this->vocabulary()));
         self::assertStringContainsString(
-            "\n.t-hover-fg-brand-12:has(> .thallo-block-link:focus-visible) { color: var(--t-color-brand-12); }\n",
+            "\n.t-hover-fg-brand-12:has(> .thallo-block-link:focus-visible) { "
+                . "--t-text: var(--t-color-brand-12); color: var(--t-color-brand-12); }\n",
             StyleCompiler::colorUtilities(['brand-12']),
         );
     }
@@ -760,6 +765,36 @@ final class StyleCompilerTest extends TestCase
         // Per width: none on a wide screen takes a phone's overlay away.
         self::assertStringContainsString('.lg\\:t-ovtone-none { --thallo-overlay-bg: transparent; }', $css);
         self::assertStringContainsString('.md\\:t-ovopacity-50 { --thallo-overlay-opacity: 0.5; }', $css);
+    }
+
+    public function testAWhiteOrBlackBackgroundRecomputesTheColourTokensInsideIt(): void
+    {
+        // White and black are the same in both colour modes, so what sits on them must be too: the
+        // theme points its palette variables at its light (or dark) set on those elements, and the
+        // tokens, which :root resolved against the CURRENT mode, are re-resolved there. No
+        // specificity, so a text colour chosen on the same block still wins.
+        $css = StyleCompiler::compile($this->vocabulary());
+        foreach (['white', 'black'] as $literal) {
+            $rule = ':where(.t-bg-' . $literal . ', .t-abg-' . $literal . ') { '
+                . '--t-color-background: var(--bg); --t-color-surface: var(--surface); '
+                . '--t-color-surface-2: var(--surface-2); --t-color-text: var(--ink); '
+                . '--t-color-muted: var(--muted); --t-color-line: var(--line); '
+                . '--t-color-accent: var(--accent); --t-color-accent-contrast: var(--accent-ink); '
+                . 'color: var(--t-text, var(--t-color-text)); }';
+            self::assertStringContainsString($rule, $css);
+        }
+        // A text colour chosen on the block or around it still reaches what sits on the white or
+        // black: the text utility names its colour in an inherited variable, which the rule reads
+        // first (a Social link's accent text on the row's black icon background).
+        self::assertStringContainsString(
+            '.t-fg-accent { --t-text: var(--t-color-accent); color: var(--t-color-accent); }',
+            $css,
+        );
+        // Inside the layer, after the tokens it re-resolves.
+        self::assertMatchesRegularExpression(
+            '~@layer settings \{\n:root \{[^}]*\}\n(?s:.*):where\(\.t-bg-white~',
+            $css,
+        );
     }
 
     public function testAnOverlaySetToColourTakesTheOverlayColour(): void

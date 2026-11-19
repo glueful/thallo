@@ -49,6 +49,10 @@ final class PaletteCssTest extends TestCase
     {
         $css = ThemeColors::paletteCss('blue', 'custom', new Palette(self::SIX, 'stone'), false);
         self::assertStringNotContainsString('data-theme="dark"', $css);
+        // A black background still needs the dark set, colour mode or not.
+        $dark = ThemeColors::neutralTokens('stone', 'dark');
+        self::assertStringContainsString('--thallo-dark-bg:' . $dark['--bg'] . ';', $css);
+        self::assertStringContainsString('--thallo-light-bg:#f8f4ec;', $css);
     }
 
     public function testAHexAccentDarkensAgainstTheEffectiveDarkGround(): void

@@ -666,6 +666,35 @@ brand values in `:root` and your dark values under `html[data-theme="dark"]`.
 Do **not** re-introduce `@media (prefers-color-scheme: dark)` on `:root`: it
 would override an explicit light choice on an OS-dark machine.
 
+### 8.2a Fixed backgrounds (white and black)
+
+`white` and `black` (§12.1) are the same colour in both modes, so whatever sits on them must be
+too: a white card showed dark-mode text, near-white on white. A block whose Background (or a
+hero aside's background) is **white** therefore takes the theme's **light** palette inside it,
+and **black** the **dark** palette, whatever the visitor's mode.
+
+Two pieces do it:
+
+- `site.css` defines both palettes under names no mode re-maps — `--thallo-light-bg` …
+  `--thallo-light-accent-ink` and `--thallo-dark-bg` … `--thallo-dark-accent-ink` — and points the
+  palette variables at them on those elements:
+
+  ```css
+  :where(.t-bg-white, .t-abg-white) { --bg: var(--thallo-light-bg); --ink: var(--thallo-light-ink); /* … */ }
+  :where(.t-bg-black, .t-abg-black) { --bg: var(--thallo-dark-bg); --ink: var(--thallo-dark-ink); /* … */ }
+  ```
+
+  A site's own colours (§9, §9.7) write both sets from its palette, so they always match it.
+- The style artifact (§12.2) re-declares the colour tokens there (`--t-color-text: var(--ink)`,
+  …) and sets `color`, because `:root` resolved them against the current mode. `:where()` keeps
+  both at no specificity: a text colour chosen on the same block still wins. A text colour chosen
+  on a block around it wins too: every text utility also sets the inherited `--t-text`, and the
+  rule's colour is `var(--t-text, var(--t-color-text))`.
+
+A theme of your own that re-maps different variables mirrors the first piece with its own names;
+the second needs nothing from it. Brand colours and a Style block's scoped re-skin (§10) are not
+part of the fixed sets.
+
 ### 8.3 The toggle block
 
 Drop the **Color mode** block (`color_mode`) into a region (it's in the Content

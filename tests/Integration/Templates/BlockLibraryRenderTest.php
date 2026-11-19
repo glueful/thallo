@@ -165,7 +165,10 @@ final class BlockLibraryRenderTest extends AppTestCase
             '.t-bg-black { --t-surface: var(--t-color-black); background: var(--t-color-black); }',
             $css,
         );
-        self::assertStringContainsString('.t-fg-black { color: var(--t-color-black); }', $css);
+        self::assertStringContainsString(
+            '.t-fg-black { --t-text: var(--t-color-black); color: var(--t-color-black); }',
+            $css,
+        );
     }
 
     public function testContainerRejectsAnUnknownOverlayAndDropsTheRetiredLayoutFields(): void

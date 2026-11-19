@@ -52,6 +52,42 @@ final class ThemeColorsTest extends AppTestCase
         ], $dark);
     }
 
+    public function testAPairAlsoPublishesBothModesUnderFixedNamesForWhiteAndBlackBackgrounds(): void
+    {
+        // A white background keeps the light set in dark mode and a black one the dark set in light
+        // mode, so both sets must be readable at once, under names no colour mode re-maps.
+        $css = ThemeColors::css('rose', 'stone');
+        $fixed = substr($css, (int) strrpos($css, ':root{'));
+        foreach (['light', 'dark'] as $mode) {
+            foreach (ThemeColors::tokens('rose', 'stone', $mode) as $var => $hex) {
+                self::assertStringContainsString('--thallo-' . $mode . substr($var, 1) . ':' . $hex . ';', $fixed);
+            }
+        }
+        self::assertStringStartsWith(':root{--bg:', $css, 'the colour-mode blocks come first, unchanged');
+    }
+
+    public function testTheDefaultThemeDefinesBothFixedSetsAsItsOwnDefaultPair(): void
+    {
+        // The default pair emits nothing, so the stylesheet carries its fixed sets — the same values.
+        $css = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/assets/site.css',
+        );
+        $root = substr($css, (int) strpos($css, ':root {'), (int) strpos($css, 'html[data-theme="dark"] {'));
+        foreach (['light', 'dark'] as $mode) {
+            foreach (ThemeColors::tokens('blue', 'slate', $mode) as $var => $hex) {
+                self::assertStringContainsString('--thallo-' . $mode . substr($var, 1) . ': ' . $hex . ';', $root);
+            }
+        }
+        // White and black backgrounds point the palette at those sets.
+        foreach (['white' => 'light', 'black' => 'dark'] as $literal => $mode) {
+            self::assertMatchesRegularExpression(
+                '~:where\(\.t-bg-' . $literal . ', \.t-abg-' . $literal . '\) \{[^}]*--ink: var\(--thallo-' . $mode
+                    . '-ink\);[^}]*--accent-ink: var\(--thallo-' . $mode . '-accent-ink\);~',
+                $css,
+            );
+        }
+    }
+
     public function testWhiteAccentInkMeetsContrastForEveryAccent(): void
     {
         // Every accent's light --accent must reach >= 4.5:1 against white ink,

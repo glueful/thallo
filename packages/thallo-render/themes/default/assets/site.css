@@ -56,6 +56,24 @@
   --space-5: 2.5rem;
   --space-6: 4rem;
   --space-7: 6rem;
+  /* Both colour modes under names neither re-maps, for white and black backgrounds (below). A
+     site's own colours replace these with its palette's (ThemeColors::fixedCss()). */
+  --thallo-light-bg: #ffffff;
+  --thallo-light-surface: #f6f7f9;
+  --thallo-light-surface-2: #eef0f4;
+  --thallo-light-ink: #0f172a;
+  --thallo-light-muted: #64748b;
+  --thallo-light-line: #e2e8f0;
+  --thallo-light-accent: #2563eb;
+  --thallo-light-accent-ink: #ffffff;
+  --thallo-dark-bg: #0b1120;
+  --thallo-dark-surface: #111a2e;
+  --thallo-dark-surface-2: #16213a;
+  --thallo-dark-ink: #e2e8f0;
+  --thallo-dark-muted: #94a3b8;
+  --thallo-dark-line: #1e293b;
+  --thallo-dark-accent: #3b82f6;
+  --thallo-dark-accent-ink: #ffffff;
 }
 html[data-theme="dark"] {
   --bg: #0b1120;
@@ -69,6 +87,21 @@ html[data-theme="dark"] {
   /* Shadows recompute from the scale; dark just darkens the tint and boosts strength. */
   --shadow-color: #000000;
   --shadow-strength: 2.5;
+}
+/* Fixed backgrounds (THEMING.md): white and black are the same in both colour modes, so what sits
+   on them must be. A white background (Background or a hero aside's) takes the light palette and a
+   black one the dark, whatever the mode; the style artifact re-resolves the colour tokens there. */
+:where(.t-bg-white, .t-abg-white) {
+  --bg: var(--thallo-light-bg); --surface: var(--thallo-light-surface);
+  --surface-2: var(--thallo-light-surface-2); --ink: var(--thallo-light-ink);
+  --muted: var(--thallo-light-muted); --line: var(--thallo-light-line);
+  --accent: var(--thallo-light-accent); --accent-ink: var(--thallo-light-accent-ink);
+}
+:where(.t-bg-black, .t-abg-black) {
+  --bg: var(--thallo-dark-bg); --surface: var(--thallo-dark-surface);
+  --surface-2: var(--thallo-dark-surface-2); --ink: var(--thallo-dark-ink);
+  --muted: var(--thallo-dark-muted); --line: var(--thallo-dark-line);
+  --accent: var(--thallo-dark-accent); --accent-ink: var(--thallo-dark-accent-ink);
 }
 
 * { box-sizing: border-box; }

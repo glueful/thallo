@@ -142,8 +142,35 @@ final class ThemeColors
         if ($accent === self::DEFAULT_ACCENT && $neutral === self::DEFAULT_NEUTRAL) {
             return '';
         }
-        return ':root{' . self::declarations(self::tokens($accent, $neutral, 'light')) . '}'
-            . 'html[data-theme="dark"]{' . self::declarations(self::tokens($accent, $neutral, 'dark')) . '}';
+        $light = self::tokens($accent, $neutral, 'light');
+        $dark = self::tokens($accent, $neutral, 'dark');
+        return ':root{' . self::declarations($light) . '}'
+            . 'html[data-theme="dark"]{' . self::declarations($dark) . '}'
+            . self::fixedCss($light, $dark);
+    }
+
+    /**
+     * Both modes' values under names no colour mode re-maps (`--thallo-light-ink`,
+     * `--thallo-dark-ink`, …): a white background keeps the light set in dark mode and a black one
+     * the dark set in light mode (THEMING.md, "Fixed backgrounds"), so both must be readable at
+     * once. Written whether colour mode is on or not: a black background needs the dark set either
+     * way. Brand colours are not included; they keep the current mode's fill.
+     *
+     * @param array<string,string> $light
+     * @param array<string,string> $dark
+     */
+    private static function fixedCss(array $light, array $dark): string
+    {
+        $fixed = [];
+        $names = ['--bg', '--surface', '--surface-2', '--ink', '--muted', '--line', '--accent', '--accent-ink'];
+        foreach (['light' => $light, 'dark' => $dark] as $mode => $vars) {
+            foreach ($names as $var) {
+                if (isset($vars[$var])) {
+                    $fixed['--thallo-' . $mode . substr($var, 1)] = $vars[$var];
+                }
+            }
+        }
+        return ':root{' . self::declarations($fixed) . '}';
     }
 
     /**
@@ -176,7 +203,8 @@ final class ThemeColors
             $dark["--brand-{$slot}-ink"] = $ink;
         }
         $css = ':root{' . self::declarations($light) . '}';
-        return $colorMode ? $css . 'html[data-theme="dark"]{' . self::declarations($dark) . '}' : $css;
+        return ($colorMode ? $css . 'html[data-theme="dark"]{' . self::declarations($dark) . '}' : $css)
+            . self::fixedCss($light, $dark);
     }
 
     /**
