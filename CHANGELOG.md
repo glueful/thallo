@@ -5,7 +5,10 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.108] - 2026-11-19 — Developer Preview
+
+Text on a White or Black background is readable in both colour modes: a white card no longer shows
+dark mode's near-white text. Requires glueful/framework 1.92.
 
 ### Fixed
 - **Text on a white or black background in the other colour mode.** A block set to the White
