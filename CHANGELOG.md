@@ -5,6 +5,13 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [Unreleased]
+
+### Added
+- **Check for updates from anywhere in the admin.** Clicking the Thallo version at the foot of the
+  sidebar opens **Check for updates**, with when the site last checked. It was only on Utilities ›
+  Health, so finding out about a release before the daily 04:00 check meant knowing to look there.
+
 ## [1.0.0-beta.109] - 2026-11-25 — Developer Preview
 
 Resized images are made once, at upload, and kept, so no visitor waits for one; images on cloud

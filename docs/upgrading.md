@@ -139,8 +139,9 @@ browser only; the next release shows again. The notice clears the moment the upg
 - A pre-release install (`1.0.0-beta.N`) is offered newer pre-releases and stable releases; a
   stable install is never pointed at a pre-release.
 - `UPDATE_CHECK_ENABLED=false` in `.env` turns the check and the notice off.
-- **Check for updates** on Utilities → Health asks Packagist now instead of waiting for 04:00,
-  and says what it found. It is limited to six checks a minute per user.
+- **Check for updates** asks Packagist now instead of waiting for 04:00, and says what it found.
+  Click the Thallo version at the foot of the sidebar, or open Utilities → Health. It needs
+  `system.access` and is limited to six checks a minute per user.
 - `php glueful thallo:update:check` (add `--force` to ask now) shows the same status on the
   command line.
 - A failed daily check is silent: the previous answer stands until the next one succeeds.
