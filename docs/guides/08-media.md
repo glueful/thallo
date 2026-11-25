@@ -116,10 +116,22 @@ starts with `/v1/blobs/`**, eligible for cache, Edge TTL from the origin's cache
 Browser TTL respecting the origin. The
 [framework's caching guide](https://glueful.com/features/file-uploads#caching) has the details.
 
-The resize happens on the first request for that width and is cached for `cache_ttl`, seven
-days. Both the original and the variants answer with `Cache-Control: public, max-age=86400`, so
-a browser holds them for a day. Resizing needs a PHP image extension: `IMAGE_DRIVER` in `.env`
-is `gd` or `imagick`.
+### Resized copies
+
+Each resized copy is made once and stored as a file beside its image, under `_variants/` on the
+same disk, until the image changes. When you upload a JPEG, PNG or WebP image, the queue worker
+makes every width the default theme and the media library ask for (160, 320, 480, 640, 768, 960,
+1024, 1280, 1536 and 1920 pixels), in the image's own format and as WebP. That is up to twenty
+copies per image, so no visitor waits for one to be made. A width nothing has made yet, such as one
+a custom template asks for, is made on its first request and stored.
+
+The widths are `image_processing.pregenerate.widths` in `config/uploads.php`: add any your own
+templates use. It needs a queue worker taking the `default` queue (see
+[the scheduler and the queue](../operations/03-scheduler-and-queues.md)); without one, or with
+`UPLOADS_PREGENERATE_VARIANTS=false` in `.env`, each copy is made on its first request instead. At
+most 32 copies are kept per image, so arbitrary `?width=` values cannot fill the disk.
+
+Resizing needs a PHP image extension: `IMAGE_DRIVER` in `.env` is `gd` or `imagick`.
 
 ## Make an image smaller
 
@@ -127,9 +139,9 @@ is `gd` or `imagick`.
 original. If the re-encode is no smaller, Thallo keeps the original bytes and says
 **Already optimal**.
 
-Resized variants follow the new file at once: each one is keyed to the file's size and last
-change, so the next request for a thumbnail or a `srcset` width is made from the optimized
-original.
+Resized copies follow the new file at once: each one is keyed to the file's size and last
+change, so the old copies are no longer used, and the queue worker makes the widths your pages ask
+for again from the optimized original.
 
 ## Where the files are stored
 
@@ -144,6 +156,13 @@ see in the admin is held in the database, not on the disk.
 `config/storage.php` also declares an `s3` disk for S3-compatible object storage, but only the
 `local` and `memory` drivers are built in. Pointing `UPLOADS_DISK` at `s3` fails with
 `Unsupported disk driver 's3'. Install it with: composer require glueful/storage-s3.`
+
+Resized copies are stored on the same disk as their image, so on S3, R2, Google Cloud Storage or
+Azure they are in the bucket too. Serving one there costs a bucket request, streamed through PHP.
+Set `UPLOADS_VARIANT_REDIRECT_TTL=3600` to have a public image's copy answered with a redirect to a
+signed URL instead, so the browser loads it from the bucket. Private images are still streamed. If
+you set a Content-Security-Policy with `CSP_HEADER`, its `img-src` must allow the bucket's host.
+`UPLOADS_VARIANT_DISK` keeps every copy on one disk of your choice instead, such as the local disk.
 
 Nothing in `storage/uploads/` is in the database, so it needs backing up alongside it: see
 [back up and restore](../operations/04-backups.md).
