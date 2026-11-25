@@ -71,6 +71,7 @@ final class DocsSyncRunnerTest extends AppTestCase
         self::assertSame('finished', $row['status']);
         self::assertSame('success', $row['outcome']);
         self::assertSame(2, (int) $row['created']);
+        self::assertSame(2, (int) $row['total'], 'the card shows progress as page N of total');
         self::assertSame(['guides/one.md' => 'created', 'guides/two.md' => 'created'], $this->pageStatuses($run));
         self::assertSame('v1.0.0', $row['ref']);
         self::assertSame(self::SHA, $row['sha']);
