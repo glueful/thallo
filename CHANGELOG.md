@@ -5,7 +5,10 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.111] - 2026-11-25 — Developer Preview
+
+Documentation from GitHub moves to the docs pages list, and Release no longer stops a sync that is
+only waiting for its worker.
 
 ### Changed
 - **Documentation from GitHub moved to the docs pages list.** It was a card under Settings ›
@@ -18,6 +21,11 @@ as the next release, never a mutated tag.
   a sync started, so pressing it ended a sync that had not begun ("Interrupted after 0 pages"). It
   now appears only when no worker has taken the sync two minutes after it started, or its worker
   stopped reporting in for two minutes, and the server refuses it otherwise.
+
+### Upgrade Notes
+- `composer update glueful/thallo-core -W && php glueful thallo:provision`, then
+  `php glueful queue:restart`. Nothing else to run: the sync's source and history are kept, and
+  the bar appears on the docs pages list of the type the source imports into.
 
 ## [1.0.0-beta.110] - 2026-11-25 — Developer Preview
 
