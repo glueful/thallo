@@ -196,6 +196,106 @@ final class MarkdownFolderImportTest extends AppTestCase
         self::assertNotNull($up->findBySlug($type, 'en', 'gone'), 'and nothing is deleted, dry run or not');
     }
 
+    public function testAnEmptyFolderIsRefusedAndNothingIsWritten(): void
+    {
+        // An empty folder (a mistyped path, an archive with nothing in it) once reported every
+        // page gone. It is refused, before anything is read or written.
+        $this->write('guides/notes.txt', "not Markdown\n");
+        $type = (string) $this->container()->get(ContentTypeReader::class)->findUuidBySlug('docs');
+        $before = $this->container()->get(ContentUpserter::class)->fieldValues($type, 'en', 'source_path');
+
+        try {
+            $this->import()->run($this->dir, ['type' => 'docs']);
+            self::fail('An empty folder must be refused.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertMatchesRegularExpression('/holds no Markdown files/', $e->getMessage());
+        }
+        $after = $this->container()->get(ContentUpserter::class)->fieldValues($type, 'en', 'source_path');
+        self::assertSame($before, $after);
+    }
+
+    public function testReadResolvesEveryPageAndWritePageWritesOne(): void
+    {
+        $this->write('guides/one.md', "# One\n\nSee [two](two.md).\n");
+        $this->write('guides/two.md', "# Two\n\nBack to [one](one.md).\n");
+        $import = $this->import();
+
+        $read = $import->read($this->dir, ['type' => 'docs']);
+
+        self::assertCount(2, $read->pages);
+        self::assertSame('docs', $read->type);
+        $byPath = [];
+        foreach ($read->pages as $page) {
+            $byPath[$page->sourcePath] = $page;
+        }
+        self::assertStringContainsString('(/docs/two)', $byPath['guides/one.md']->body);
+
+        $result = $import->writePage($read, $byPath['guides/one.md'], ['publish' => true]);
+
+        self::assertSame('created', $result['status']);
+        $up = $this->container()->get(ContentUpserter::class);
+        self::assertNotNull($up->findBySlug($read->typeUuid, 'en', 'one'));
+        self::assertNull($up->findBySlug($read->typeUuid, 'en', 'two'), 'only the page written exists');
+    }
+
+    public function testWritePageThrowsWhereRunReportsFailed(): void
+    {
+        $this->write('bad.md', "# Bad\n");
+        $c = $this->container();
+        $real = $c->get(ContentWriter::class);
+        $refusing = new class ($real) implements ContentWriter {
+            public function __construct(private readonly ContentWriter $inner)
+            {
+            }
+            public function createDraft(
+                string $contentTypeUuid,
+                string $locale,
+                array $fields,
+                ?string $actor = null,
+            ): string {
+                return $this->inner->createDraft($contentTypeUuid, $locale, $fields, $actor);
+            }
+            public function validate(string $contentTypeUuid, string $locale, array $fields): array
+            {
+                throw new class (['title' => 'is not allowed']) extends \RuntimeException implements
+                    \Thallo\Contracts\Authoring\ValidationFailed
+                {
+                    /** @param array<string,string> $errors */
+                    public function __construct(private readonly array $errors)
+                    {
+                        parent::__construct('invalid');
+                    }
+                    public function errors(): array
+                    {
+                        return $this->errors;
+                    }
+                };
+            }
+            public function publish(string $entryUuid, string $locale, ?string $actor = null): string
+            {
+                return $this->inner->publish($entryUuid, $locale, $actor);
+            }
+        };
+        $import = new MarkdownFolderImport(
+            $refusing,
+            $c->get(ContentUpserter::class),
+            $c->get(ContentTypeReader::class),
+            $c->get(CapabilityRegistry::class),
+        );
+
+        $read = $import->read($this->dir, ['type' => 'docs']);
+        try {
+            $import->writePage($read, $read->pages[0], []);
+            self::fail('writePage() must throw: the caller decides what a failure leaves behind.');
+        } catch (\Thallo\Contracts\Authoring\ValidationFailed $e) {
+            self::assertSame(['title' => 'is not allowed'], $e->errors());
+        }
+
+        $report = $import->run($this->dir, ['type' => 'docs']);
+        self::assertSame('failed', $report['files'][0]['status']);
+        self::assertStringStartsWith('Not valid:', $report['files'][0]['message']);
+    }
+
     public function testOneBadFileDoesNotStopTheRestAndTwoFilesCannotClaimOneUrl(): void
     {
         $this->write('a.md', "---\nslug: same\n---\n# A\n");

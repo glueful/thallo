@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a89d2970d173e9e5a5a714547ff0be56",
+    "content-hash": "bf399fc6e253a30a82607b4dff0cfd60",
     "packages": [
         {
             "name": "composer/semver",
@@ -848,16 +848,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.93.0",
+            "version": "v1.93.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "1cd1a69d98d861be5cf3a0134f141fabdf48553f"
+                "reference": "bf67bf1a0be3414461180ef6cdcff7046dee0bd4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/1cd1a69d98d861be5cf3a0134f141fabdf48553f",
-                "reference": "1cd1a69d98d861be5cf3a0134f141fabdf48553f",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/bf67bf1a0be3414461180ef6cdcff7046dee0bd4",
+                "reference": "bf67bf1a0be3414461180ef6cdcff7046dee0bd4",
                 "shasum": ""
             },
             "require": {
@@ -954,8 +954,8 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-11-25T10:59:44+00:00",
-            "published-time": "2026-11-25T11:02:43+00:00"
+            "time": "2026-11-25T19:09:16+00:00",
+            "published-time": "2026-11-25T19:12:56+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1794,7 +1794,7 @@
                 "glueful/audit": "^1.4",
                 "glueful/commerce": "^1.13",
                 "glueful/email-notification": "^1.14",
-                "glueful/framework": "^1.93.0",
+                "glueful/framework": "^1.93.1",
                 "glueful/i18n": "^1.2",
                 "glueful/import-export": "^1.2.1",
                 "glueful/media": "^1.2",

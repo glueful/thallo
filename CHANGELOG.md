@@ -5,6 +5,38 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
+## [1.0.0-beta.110] - 2026-11-25 — Developer Preview
+
+A site's documentation can follow a public GitHub repo: set it up once, then Sync now. Check for
+updates from the sidebar version; a failing queued job stops after the attempts it is allowed.
+Requires glueful/framework 1.93.1.
+
+### Added
+- **Documentation from a GitHub repo.** Settings › Import / Export can follow a public GitHub
+  repo's docs folder, at its latest release tag or a branch: **Sync now** brings the pages to it,
+  **Preview** shows what would change, and the card keeps each sync's outcome and pages. It says
+  when the repo has moved since the last sync. `thallo:provision` schedules the recovery of a sync
+  whose worker died. See [a documentation section on your site](docs/documentation-sites.md).
+- **Check for updates from anywhere in the admin.** Clicking the Thallo version at the foot of the
+  sidebar opens **Check for updates**, with when the site last checked. It was only on Utilities ›
+  Health, so finding out about a release before the daily 04:00 check meant knowing to look there.
+
+### Fixed
+- **A queued job that keeps failing stops after the attempts it is allowed.** On the database queue
+  (Thallo's default) every failing job ran once more than its limit: a job allowed one attempt was
+  retried once. Requires glueful/framework 1.93.1, which the update brings.
+- **A Markdown import of an empty folder is refused.** It reported every page as gone; now it says
+  the folder holds no Markdown files and writes nothing.
+
+### Upgrade Notes
+- `composer update glueful/thallo-core -W && php glueful thallo:provision`, then
+  `php glueful queue:restart`. Provision runs the new migration (the docs sync's tables) and
+  registers its two scheduled tasks, `docs_sync_recover` and `docs_sync_prune`, in the scheduler's
+  database store; with that store off it says so.
+- Documentation from GitHub runs on the `import-export` queue: the documented worker command already
+  takes it. A stuck sync is picked up again by the scheduler, so keep `queue:scheduler run` in cron.
+- On the database queue, a job that keeps failing now runs `--tries` times, not once more.
+
 ## [1.0.0-beta.109] - 2026-11-25 — Developer Preview
 
 Resized images are made once, at upload, and kept, so no visitor waits for one; images on cloud

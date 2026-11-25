@@ -4699,6 +4699,118 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/docs-sync': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Documentation from GitHub
+     * @description The docs source, the run holding the slot, the last sync that landed, the ten most recent runs, and whether the repo has moved since. Requires `import_export.view`.
+     */
+    get: operations['getV1AdminDocssync']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/docs-sync/run': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Sync now, or Preview
+     * @description `mode`: `commit` (Sync now) or `dry_run` (Preview). Takes the site's single slot and queues the sync on the import-export queue.
+     */
+    post: operations['postV1AdminDocssyncRun']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/docs-sync/runs/{run}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** A docs sync run and its pages */
+    get: operations['getV1AdminDocssyncRunsByRun']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/docs-sync/runs/{run}/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Cancel a docs sync run */
+    post: operations['postV1AdminDocssyncRunsByRunCancel']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/docs-sync/runs/{run}/release': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Release a docs sync run that stopped reporting in */
+    post: operations['postV1AdminDocssyncRunsByRunRelease']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/docs-sync/source': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Save the docs source
+     * @description Checks the source against GitHub (a public repo; a version tag or the branch) and saves it as a new revision. Refused while a sync runs. Requires `content.manage` and `import_export.run_import`.
+     */
+    put: operations['putV1AdminDocssyncSource']
+    post?: never
+    /** Remove the docs source */
+    delete: operations['deleteV1AdminDocssyncSource']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export type webhooks = Record<string, never>
 export interface components {
@@ -37190,6 +37302,544 @@ export interface operations {
             }
           }
         }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminDocssync: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The docs sync state. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminDocssyncRun: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The run, queued. */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A sync is running, there is no source, or the source just changed. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unknown mode. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  getV1AdminDocssyncRunsByRun: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description The run, with each page and what happened to it. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description No such run. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminDocssyncRunsByRunCancel: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description `finished`: whether it is over now; `outcome` when it is. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  postV1AdminDocssyncRunsByRunRelease: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        run: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description `released`: false while its attempt is still working. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  putV1AdminDocssyncSource: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Saved. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A sync is running. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The source, or GitHub, refused it; the message names the field. */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unexpected server error. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+    }
+  }
+  deleteV1AdminDocssyncSource: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Removed; pages already imported stay. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Unauthenticated. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            success?: boolean
+            message?: string
+            error?: {
+              code?: number
+              timestamp?: string
+              request_id?: string
+            }
+          }
+        }
+      }
+      /** @description A sync is running. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
       /** @description Unexpected server error. */
       500: {

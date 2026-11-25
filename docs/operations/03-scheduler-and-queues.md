@@ -32,6 +32,8 @@ set it to `false` and the job is never registered.
 | `schedules_run` | `* * * * *` | Fires due scheduled publish and unpublish actions | always registered |
 | `render_availability_purge` | `* * * * *` | Purges cached pages after a feature is switched on or off, and finishes the delayed CDN purge | always registered |
 | `search_reconcile` | `* * * * *` | Builds search index kinds with an outstanding rebuild request; does nothing while Search is off | always registered |
+| `docs_sync_recover` | `*/5 * * * *` | Picks up a Documentation from GitHub sync whose worker died, within its five attempts | registered by `thallo:provision` in the scheduler's database store |
+| `docs_sync_prune` | `17 3 * * *` | Deletes docs syncs past `import_export.retention_days` (the last sync stays) and archives a day old | registered by `thallo:provision` in the scheduler's database store |
 | `notification_retry_processor` | `*/10 * * * *` | Processes queued notification retries | `NOTIFICATION_RETRIES_ENABLED` |
 | `domain_reverification_sweep` | `0 * * * *` | Re-verifies due custom-domain ownership proofs | `TENANCY_REVERIFICATION_ENABLED` |
 | `session_cleaner` | `0 0 * * *` | Cleans up expired user sessions | `SESSION_CLEANER_ENABLED` |
@@ -106,7 +108,7 @@ These are the queues Thallo dispatches to:
 | Queue | What arrives on it |
 |---|---|
 | `default` | Style class detach-everywhere and remove-everywhere jobs, content type and block type backfills, filter-index jobs, resized copies of uploaded images |
-| `import-export` | Imports and exports started from **Settings › Import / Export** |
+| `import-export` | Imports and exports started from **Settings › Import / Export**, and Documentation from GitHub syncs |
 | `webhooks` | Content webhook deliveries and their retries (`WEBHOOKS_QUEUE` renames it) — see [webhooks](../guides/16-webhooks.md) |
 | `tenancy-purge`, `tenancy-maintenance` | Workspace purges and host-cooldown sweeps, once workspaces are on |
 

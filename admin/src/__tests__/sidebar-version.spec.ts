@@ -19,6 +19,14 @@ const stubs = {
   RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' },
   // A tooltip needs UApp's provider and is not under test (keyed by the component's own name).
   Tooltip: { template: '<div><slot /></div>' },
+  // The popover renders its trigger and its content side by side: what opens it is not under test.
+  Popover: {
+    template: '<div><slot /><div data-test="popover-content"><slot name="content" /></div></div>',
+  },
+  UpdateCheckNow: {
+    props: ['status'],
+    template: '<div data-test="check-now">{{ status?.current }}</div>',
+  },
 }
 const running = (over: Partial<UpdateStatus> = {}): UpdateStatus =>
   ({
@@ -64,6 +72,44 @@ describe('the version at the foot of the sidebar', () => {
     const w = mount(SidebarVersion, { props: { collapsed: true }, global: { stubs } })
     expect(w.text()).not.toContain('Thallo 1.0.0-beta.74')
     expect(w.find('[data-test="sidebar-version-update"]').exists()).toBe(true)
+  })
+})
+
+describe('checking for updates from the version', () => {
+  // The daily check runs at 04:00; Health had the only way to check sooner, so the version itself,
+  // always on screen, opens it.
+  it('the version opens a check for updates', () => {
+    status.value = running()
+    const w = mount(SidebarVersion, { props: { collapsed: false }, global: { stubs } })
+    const toggle = w.find('[data-test="sidebar-version-toggle"]')
+    expect(toggle.element.tagName).toBe('BUTTON')
+    expect(toggle.text()).toBe('Thallo 1.0.0-beta.74')
+    expect(toggle.attributes('aria-label')).toBe('Thallo 1.0.0-beta.74: check for updates')
+    expect(w.find('[data-test="popover-content"] [data-test="check-now"]').text()).toBe(
+      '1.0.0-beta.74',
+    )
+  })
+
+  it('keeps the update link beside it when a newer release is published', () => {
+    status.value = running({ latest: '1.0.0-beta.75', available: true })
+    visible.value = true
+    const w = mount(SidebarVersion, { props: { collapsed: false }, global: { stubs } })
+    expect(w.find('[data-test="sidebar-version-toggle"]').exists()).toBe(true)
+    expect(w.find('[data-test="sidebar-version-update"]').attributes('href')).toBe('/')
+  })
+
+  it('a development checkout is never checked, so its version opens nothing', () => {
+    status.value = running({ development: true, current: null })
+    const w = mount(SidebarVersion, { props: { collapsed: false }, global: { stubs } })
+    expect(w.text()).toContain('Thallo — development checkout')
+    expect(w.find('[data-test="sidebar-version-toggle"]').exists()).toBe(false)
+  })
+
+  it('a collapsed sidebar offers no check: there is no version to click', () => {
+    status.value = running({ latest: '1.0.0-beta.75', available: true })
+    visible.value = true
+    const w = mount(SidebarVersion, { props: { collapsed: true }, global: { stubs } })
+    expect(w.find('[data-test="sidebar-version-toggle"]').exists()).toBe(false)
   })
 })
 
