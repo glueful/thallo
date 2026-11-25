@@ -125,8 +125,23 @@ makes every width the default theme and the media library ask for (160, 320, 480
 copies per image, so no visitor waits for one to be made. A width nothing has made yet, such as one
 a custom template asks for, is made on its first request and stored.
 
-The widths are `image_processing.pregenerate.widths` in `config/uploads.php`: add any your own
-templates use. It needs a queue worker taking the `default` queue (see
+To change which copies are made, for widths your own templates use, add an
+`image_processing.pregenerate` block to `config/uploads.php`. It replaces Thallo's whole, so list
+every key:
+
+```php
+'image_processing' => [
+    'pregenerate' => [
+        'enabled' => env('UPLOADS_PREGENERATE_VARIANTS', true),
+        'queue' => 'default',
+        'widths' => [160, 320, 480, 640, 768, 960, 1024, 1280, 1536, 1920],
+        'formats' => [null, 'webp'], // null: the image's own format
+        'mime_types' => ['image/jpeg', 'image/png', 'image/webp'],
+    ],
+],
+```
+
+It needs a queue worker taking the `default` queue (see
 [the scheduler and the queue](../operations/03-scheduler-and-queues.md)); without one, or with
 `UPLOADS_PREGENERATE_VARIANTS=false` in `.env`, each copy is made on its first request instead. At
 most 32 copies are kept per image, so arbitrary `?width=` values cannot fill the disk.

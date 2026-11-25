@@ -58,17 +58,10 @@ return [
         'max_variant_bytes' => (int) env('UPLOADS_MAX_VARIANT_BYTES', 5 * 1024 * 1024), // 5MB max for resized
         'cache_enabled' => env('UPLOADS_CACHE_ENABLED', true),
         'cache_ttl' => (int) env('UPLOADS_CACHE_TTL', 604800), // 7 days
-        // Resized copies are stored beside each image until it changes (variant_disk,
-        // max_stored_variants and variant_redirect_ttl come from the framework). The queue worker
-        // makes these at upload, so no visitor waits for one: every width the theme's srcsets and
-        // the media library ask for, in the image's own format and WebP.
-        'pregenerate' => [
-            'enabled' => env('UPLOADS_PREGENERATE_VARIANTS', true),
-            'queue' => env('UPLOADS_PREGENERATE_QUEUE', 'default'),
-            'widths' => [160, 320, 480, 640, 768, 960, 1024, 1280, 1536, 1920],
-            'formats' => [null, 'webp'],
-            'mime_types' => ['image/jpeg', 'image/png', 'image/webp'],
-        ],
+        // Resized copies are stored beside each image until it changes. Thallo has the queue
+        // worker make, at upload, every width its theme and media library ask for
+        // (UPLOADS_PREGENERATE_VARIANTS=false: on request). A 'pregenerate' block here
+        // (enabled, queue, widths, formats, mime_types) replaces Thallo's.
     ],
 
     // Auto-generate thumbnails on upload (disabled by default - use on-demand resize instead)

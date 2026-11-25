@@ -15,7 +15,8 @@ as the next release, never a mutated tag.
   srcsets and the media library use (160 to 1920 pixels, in the image's own format and WebP) as soon
   as a JPEG, PNG or WebP image is uploaded, so no visitor waits for one. **Optimize image** queues
   them again for the smaller file. `UPLOADS_PREGENERATE_VARIANTS=false` leaves copies to be made on
-  request. Each image keeps up to twenty copies on its disk.
+  request. That is twenty copies per image, and at most 32 are kept. Existing installs get this too:
+  Thallo applies it unless a site's `config/uploads.php` sets its own `pregenerate` block.
 - **Images on cloud storage can load straight from the bucket.** With `glueful/storage-s3` (and R2,
   MinIO, Spaces or Wasabi through it), `glueful/storage-gcs` or `glueful/storage-azure`, setting
   `UPLOADS_VARIANT_REDIRECT_TTL=3600` answers a public image's stored copy with a redirect to a
