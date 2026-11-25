@@ -23,7 +23,7 @@ vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
 
-import DocsSyncCard from '@/pages/settings/import-export/DocsSyncCard.vue'
+import DocsSyncCard from '@/components/docs-sync/DocsSyncCard.vue'
 
 const run = (over: Partial<DocsRun> = {}): DocsRun => ({
   id: 'run000000001',

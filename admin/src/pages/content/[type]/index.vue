@@ -9,6 +9,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useGeneralSettings } from '@/queries/generalSettings'
 import { useContentTypes } from '@/queries/contentTypes'
 import TablePagination from '@/components/TablePagination.vue'
+import DocsSyncBar from '@/components/docs-sync/DocsSyncBar.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -119,6 +120,7 @@ function statusColor(s: string): 'success' | 'warning' | 'neutral' {
     </template>
 
     <template #body>
+      <DocsSyncBar :type="type" :content-types="contentTypes ?? []" />
       <UTable :data="data?.entries ?? []" :columns="columns" :loading="status === 'pending'">
         <template #display_title-cell="{ row }">
           <ULink :to="`/content/${type}/${row.original.uuid}`" class="font-medium text-default">

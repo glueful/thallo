@@ -17,7 +17,7 @@ vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: vi.fn(), error: vi.fn() }),
 }))
 
-import DocsSyncForm from '@/pages/settings/import-export/DocsSyncForm.vue'
+import DocsSyncForm from '@/components/docs-sync/DocsSyncForm.vue'
 
 describe('the docs source form', () => {
   it('shows the message the server gave for the field', async () => {

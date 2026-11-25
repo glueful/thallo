@@ -40,7 +40,7 @@ vi.mock('@/queries/docsSync', async (importOriginal) => ({
   }),
 }))
 
-import DocsSyncRunPages from '@/pages/settings/import-export/DocsSyncRunPages.vue'
+import DocsSyncRunPages from '@/components/docs-sync/DocsSyncRunPages.vue'
 
 describe('a docs sync run’s pages', () => {
   it('link to the entry each page wrote, and say why a page failed', () => {
