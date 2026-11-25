@@ -12,6 +12,10 @@ as the next release, never a mutated tag.
   sidebar opens **Check for updates**, with when the site last checked. It was only on Utilities ›
   Health, so finding out about a release before the daily 04:00 check meant knowing to look there.
 
+### Fixed
+- **A Markdown import of an empty folder is refused.** It reported every page as gone; now it says
+  the folder holds no Markdown files and writes nothing.
+
 ## [1.0.0-beta.109] - 2026-11-25 — Developer Preview
 
 Resized images are made once, at upload, and kept, so no visitor waits for one; images on cloud
