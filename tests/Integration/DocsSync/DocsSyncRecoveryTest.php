@@ -55,7 +55,7 @@ final class DocsSyncRecoveryTest extends AppTestCase
         $this->recover();
 
         self::assertCount(1, $this->queue->pushed);
-        $expected = ['run' => $run, 'workspace' => $this->runRow($run)['workspace']];
+        $expected = \Thallo\Core\Content\Jobs\DocsSyncJob::payload($run, $this->runRow($run)['workspace']);
         self::assertSame($expected, $this->queue->pushed[0]['data']);
         self::assertSame('dispatched', $this->runRow($run)['status']);
     }
