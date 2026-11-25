@@ -374,8 +374,10 @@ own recovery:
 
   A claim (§6.2) applies the same last rule when it finds the budget spent.
 - **When recovery runs:** whenever the docs-sync state is read (the card, §9; a refused start), and
-  from a scheduled task every five minutes (`docs_sync_recover`, beside `import_export_cleanup`), so
-  a stuck run is picked up even when nobody opens the card. This is recovery of a sync someone
+  from a recurring scheduled task every five minutes (`docs_sync_recover`), so a stuck run is picked
+  up even when nobody opens the card. It and the daily pruning task (`docs_sync_prune`) are
+  registered by `thallo:provision` in the scheduler's `scheduled_jobs` table, which reaches existing
+  installs; a `config/schedule.php` entry would reach new installs only (see the plan's rulings). This is recovery of a sync someone
   started, not an automatic sync: it never starts a run.
 - `DocsSyncJob` sets its own queue retry limit low (one): a delivery that fails is not retried by
   the queue; recovery decides. A synchronous side effect of a page that rolled

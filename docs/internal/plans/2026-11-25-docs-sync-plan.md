@@ -1,19 +1,26 @@
 # Docs sync from GitHub — Implementation Plan
 
+> Amended 2026-11-25 after plan review: recovery and pruning are recurring tasks in the scheduler's database table, registered by provision; the watchdog is gone (Rulings 1–2, Task 5). No network I/O inside a transaction (Global Constraints, Task 6). The retry limit is `getMaxAttempts()`, proven through a real delivery; the real worker-timeout proof and the `finish` pause hook are added (Task 6).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A site owner saves a public GitHub repo + folder once; **Sync now** / **Preview** bring the site's docs to the followed release tag or branch through one dedicated, fenced, resumable sync job.
 
-**Architecture:** Three tables (`docs_sync_state`, `docs_sync_runs`, `docs_sync_run_pages`) after the palette's state-row pattern. `DocsSyncService` reserves the site's slot and dispatches `DocsSyncJob {run, workspace}`. `DocsSyncRunner`, inside the run's workspace, claims a lease, resolves the commit through `GithubClient`, downloads an attempt-owned archive, reads the folder with the importer's read step and writes each page in its own lease-fenced transaction with a savepoint. Recovery runs on every state read and from a self-rescheduling watchdog job.
+**Architecture:** Three tables (`docs_sync_state`, `docs_sync_runs`, `docs_sync_run_pages`) after the palette's state-row pattern. `DocsSyncService` reserves the site's slot and dispatches `DocsSyncJob {run, workspace}`. `DocsSyncRunner`, inside the run's workspace, claims a lease, resolves the commit through `GithubClient`, downloads an attempt-owned archive, reads the folder with the importer's read step and writes each page in its own lease-fenced transaction with a savepoint. Recovery runs on every state read and from a recurring scheduled task (`docs_sync_recover`, every 5 minutes); pruning from another (`docs_sync_prune`, daily). Provision registers both in the scheduler's `scheduled_jobs` table, so they reach existing installs.
 
 **Tech Stack:** PHP 8.3 (MAMP PHP 8.4 locally), Glueful framework 1.93 (Connection transactions/savepoints, QueueManager, Job), Symfony HttpClient (`MockHttpClient` in tests), Composer semver, Vue 3 + Nuxt UI + Pinia Colada (admin), PHPUnit 10, Vitest.
 
 **Spec:** `docs/internal/superpowers/specs/2026-11-25-docs-sync-from-github-design.md` (revision 5). Section numbers below (§N) are the spec's.
 
-## Plan rulings (deviations from the spec, owner to confirm)
+## Plan rulings (owner-confirmed after plan review)
 
-- **Ruling 1: the five-minute recovery is a self-rescheduling watchdog job, not a `config/schedule.php` entry** (§6.4). The scheduler reads only the site's own `config/schedule.php` (`JobScheduler::loadCoreJobsFromConfig`) and nothing merges into it, so an entry added there reaches new installs only. Instead, starting a run also pushes `DocsSyncWatchdogJob {run, workspace}` with `QueueManager::later(300, …)`; it runs recovery for that run and pushes itself again while the run is unfinished. Recovery on every state read (§9) stays. Cost if wrong: one more job class; a schedule entry can be added later without changing recovery.
-- **Ruling 2: run pruning is done by the watchdog and on state read**, not a scheduled task, for the same reason (§4 "pruned after `import_export.retention_days`"): each finished run's watchdog, on its last pass, deletes this site's finished runs older than `import_export.retention_days` except `synced_run`, and their `docs-sync/{run}/` files once a day old.
+- **Ruling 1: the recurring tasks live in the scheduler's database table, registered by provision** (§6.4). A `config/schedule.php` entry would reach new installs only: the scheduler reads the site's own file and nothing merges into it. But `JobScheduler` also loads `scheduled_jobs` rows (`loadJobsFromDatabase()`), and `registerInDatabase($name, $schedule, $handlerClass, $parameters)` is idempotent: an existing row is updated in place, keeping its uuid, history and `is_enabled`. `thallo:provision` runs on every install and every upgrade, so a never-fatal provision step registers:
+  - `docs_sync_recover`, `*/5 * * * *`, handler `DocsSyncRecoverJob`;
+  - `docs_sync_prune`, `17 3 * * *`, handler `DocsSyncPruneJob`.
+
+  Its prerequisite is the scheduler's table (`capabilities.scheduler`, `SCHEDULE_DATABASE_STORE`, on by default). Without it the step warns: "Docs sync recovery runs only when its card is opened: the scheduler's database store is off (SCHEDULE_DATABASE_STORE)." No `config/schedule.php` entry is added, so nothing runs twice.
+- **Ruling 2: there is no watchdog job.** With a recurring task the watchdog would only add a second chain that can itself be lost. Recovery runs from `docs_sync_recover` and on every state read (§9).
+- Both recurring tasks extend `Glueful\Queue\Job` (as `UpdateCheckJob` does) and work across workspaces with `TenantContextRunner::forEachTenant()` when the runner is bound (else once, unscoped). `forEachTenant()` stops at the first workspace that throws, so each workspace's work is wrapped in its own try/catch and logged; one broken workspace never stops the others.
 
 ## Global Constraints
 
@@ -22,7 +29,8 @@
 - Repo pattern `^[A-Za-z0-9-]{1,39}/[A-Za-z0-9._-]{1,100}$`; folder relative, no `..`, no leading `/` (§4).
 - Timeouts: 8 s API, 60 s archive; archive cap `import_export.max_file_size` (52428800), counted as streamed (§5).
 - Status note cache: 5 minutes per site. Lease expiry: 120 s. Lease proof at least every 30 s while resolving/downloading. Re-dispatch at most once per 2 minutes per run; `reserved` re-dispatched after 2 minutes. Attempt budget: 5. Tag chain: at most 5 steps. Page cap: `MarkdownZip::MAX_FILES` (2000) (§5, §6).
-- Queue: `import_export.queue` (`import-export`). `DocsSyncJob` queue retry limit 1 (§6.4).
+- Queue: `import_export.queue` (`import-export`). `DocsSyncJob` queue retry limit 1, by overriding `getMaxAttempts(): int { return 1; }` (the base `Glueful\Queue\Job::getMaxAttempts()` returns 3 and a property does not change it) (§6.4).
+- No network I/O inside a database transaction. GitHub calls and the download run outside any transaction; only short transactions prove the lease (heartbeat), record `ref`/`sha`, and record `archive_path`, so Cancel, Release and recovery never wait behind a download.
 - Permissions: write routes need `content.manage` AND `import_export.run_import`; read routes `import_export.view` (§6.5).
 - Outcomes exactly: `success`, `partial`, `refused`, `failed`, `cancelled`, `interrupted` (§7). Statuses exactly: `reserved`, `dispatched`, `running`, `finished`, forward-only (§6.0).
 - House rules: no `Co-Authored-By` or AI trailers in commits; commit only, never push; CHANGELOG `[Unreleased]` bullet in the same commit as the change; phpcs judged by exit code; admin gate is `pnpm type-check`; format touched admin files only (`npx oxfmt <files>`); every new `tests/Integration/*` folder is listed in one `INTEGRATION_SHARD_*` in `.github/workflows/ci.yml`; MAMP PHP first on PATH (`export PATH=/Applications/MAMP/bin/php/php8.4.17/bin:$PATH`); gates run one at a time; after using the test DB, `composer test:reset-db && composer test:migrate`.
@@ -141,52 +149,61 @@ git commit -m "fix(importers): split the Markdown folder import into read and wr
 - [ ] **Step 4:** Run → PASS.
 - [ ] **Step 5: Commit** `feat(docs-sync): GitHub client pinned to commits`.
 
-### Task 5: Starting a run; recovery
+### Task 5: Starting a run; recovery and pruning, recurring
 
 **Files:**
-- Create: `core/src/Content/DocsSync/DocsSyncService.php`, `core/src/Content/DocsSync/DocsSyncRunRepository.php`, `core/src/Content/Jobs/DocsSyncJob.php` (handle() stub calling `DocsSyncRunner` — Task 6), `core/src/Content/Jobs/DocsSyncWatchdogJob.php`
-- Modify: `core/src/Providers/CoreServiceProvider.php` (bindings)
-- Test: `tests/Integration/DocsSync/DocsSyncStartTest.php`, `tests/Integration/DocsSync/DocsSyncRecoveryTest.php`
+- Create: `core/src/Content/DocsSync/DocsSyncService.php`, `core/src/Content/DocsSync/DocsSyncRunRepository.php`, `core/src/Content/DocsSync/DocsSyncScheduleStep.php`, `core/src/Content/Jobs/DocsSyncJob.php` (handle() stub calling `DocsSyncRunner` — Task 6), `core/src/Content/Jobs/DocsSyncRecoverJob.php`, `core/src/Content/Jobs/DocsSyncPruneJob.php`
+- Modify: `core/src/Providers/CoreServiceProvider.php` (bindings), `core/src/Setup/Console/ProvisionCommand.php` (run `DocsSyncScheduleStep` beside the font library step, same never-fatal try/catch and one-line report)
+- Test: `tests/Integration/DocsSync/DocsSyncStartTest.php`, `tests/Integration/DocsSync/DocsSyncRecoveryTest.php`, `tests/Integration/DocsSync/DocsSyncPruneTest.php`, `tests/Integration/DocsSync/DocsSyncScheduleStepTest.php`
 
 **Interfaces:**
 - Consumes: `DocsSyncStore` (Task 3).
 - Produces:
   - `DocsSyncRunRepository`: `create(array $row): string`, `find(string $id): ?array`, `recent(int $limit): list<array>`, `pages(string $run): list<array>`, `increment(string $run, string $status): void`, `finish(string $run, string $outcome, ?string $message): void` (callers hold a fence), `markDispatched(string $run): void` (sets `last_dispatch_at`; `advanceStatus` to `dispatched`).
-  - `DocsSyncService::start(string $mode, ?string $actor): array` (the run row) — validates `mode ∈ {commit, dry_run}`; throws `DocsSyncConflict::noSource()`, `::running()`, `::sourceChanged()`. One `transaction()`: insert run (`reserved`, revision, source copy, mode, workspace from the tenant context or null), slot CAS (§6.1 step 2), then **if** `config('queue.default')`'s driver is `database`: `QueueManager::push(DocsSyncJob::class, ['run' => $id, 'workspace' => $ws], $queue)` and `markDispatched()` inside the transaction; otherwise `afterCommit` push then `markDispatched()`. Also `later(300, DocsSyncWatchdogJob::class, same payload, $queue)` after commit.
-  - `DocsSyncService::recover(): void` — §6.4 rules for the slot-holding run, under `slotFence` re-reading lease and now: live lease → nothing; `reserved` > 2 min or expired/no lease with `attempts < 5` and `last_dispatch_at` > 2 min ago → push `DocsSyncJob` again + `markDispatched()`; expired/no lease with `attempts >= 5` → finish `cancelled` if `cancel_requested` else `interrupted`, release slot. Prunes per Ruling 2.
-  - `DocsSyncWatchdogJob::handle()`: inside the workspace (same entry as `RunPaletteReplaceJob`), `recover()`; if the run is not `finished`, `later(300, self::class, payload)`.
+  - `DocsSyncService::start(string $mode, ?string $actor): array` (the run row) — validates `mode ∈ {commit, dry_run}`; throws `DocsSyncConflict::noSource()`, `::running()`, `::sourceChanged()`. One `transaction()`: insert run (`reserved`, revision, source copy, mode, workspace from the tenant context or null), slot CAS (§6.1 step 2), then **if** `config('queue.default')`'s driver is `database`: `QueueManager::push(DocsSyncJob::class, ['run' => $id, 'workspace' => $ws], $queue)` and `markDispatched()` inside the transaction; otherwise `afterCommit` push then `markDispatched()`.
+  - `DocsSyncService::recover(): void` — §6.4 rules for the current workspace's slot-holding run, under `slotFence` re-reading lease and now: live lease → nothing; `reserved` > 2 min or expired/no lease with `attempts < 5` and `last_dispatch_at` > 2 min ago → push `DocsSyncJob` again + `markDispatched()`; expired/no lease with `attempts >= 5` → finish `cancelled` if `cancel_requested` else `interrupted`, release slot. One short transaction; no network.
+  - `DocsSyncService::prune(): array{runs: int, files: int}` — for the current workspace: deletes finished runs (and their page rows) whose `finished_at` is older than `import_export.retention_days`, except `synced_run`; deletes the `docs-sync/{run}/` directory of every run finished more than a day ago, `synced_run`'s included (its history row stays, its archive goes).
+  - `DocsSyncRecoverJob::handle()` / `DocsSyncPruneJob::handle()`: `forEachTenant()` (or once, unscoped, with no runner), each workspace in its own try/catch → `recover()` / `prune()`.
+  - `DocsSyncScheduleStep::run(): array{registered: list<string>, skipped: ?string}` — if `config('capabilities.scheduler')` is false or the `scheduled_jobs` table is missing, returns `skipped` with the warning text from Ruling 1; else `JobScheduler::registerInDatabase()` for both tasks.
 
 - [ ] **Step 1: Failing tests:**
   - Start: `testOneStartTakesTheSlotAndASecondIsRefused` (second `start` throws `running`, no second job row in the queue table), `testAStartAfterTheSourceChangedIsRefused` (bump revision between reading state and CAS via a store spy), `testDatabaseQueueReservesAndQueuesInOneTransaction` (force an exception after the push inside the transaction → no run, `active_run` null, no queued job row), `testWorkspaceIsCapturedOnTheRunAndThePayload`, `testOnlyCommitAndDryRunAreAccepted`.
-  - Recovery (a fake `QueueManager` subclass recording pushes, as in the framework's `VariantRecordingQueue`): `testAReservedRunNeverPushedIsRedispatchedAfterTwoMinutes`, `testRedispatchIsBoundedToOncePerTwoMinutes`, `testALiveLeaseIsLeftAloneEvenOnTheFifthAttempt`, `testAnExpiredFifthAttemptIsInterrupted`, `testAnExpiredFifthAttemptWithCancelRequestedIsCancelled`, `testTheWatchdogRequeuesItselfUntilTheRunFinishes`, `testPruningKeepsSyncedRun`.
-- [ ] **Step 2:** Run both files → FAIL.
+  - Recovery (a fake `QueueManager` subclass recording pushes, as in the framework's `VariantRecordingQueue`): `testAReservedRunNeverPushedIsRedispatchedAfterTwoMinutes`, `testRedispatchIsBoundedToOncePerTwoMinutes`, `testALiveLeaseIsLeftAloneEvenOnTheFifthAttempt`, `testAnExpiredFifthAttemptIsInterrupted`, `testAnExpiredFifthAttemptWithCancelRequestedIsCancelled`.
+  - **Recovery without the card:** `testARequestKilledBeforeDispatchIsRecoveredByTheRecurringTask` (non-database driver path: commit the reservation, skip the push as if the process died; no state read; `DocsSyncRecoverJob::handle()` with the clock 2 minutes on → one `DocsSyncJob` pushed for the run with its workspace) and `testADeliveryWhoseRetriesRanOutIsRecoveredByTheRecurringTask` (run `dispatched`, its delivery in failed jobs, no lease; `DocsSyncRecoverJob::handle()` → re-dispatched; after five such attempts → `interrupted`). Neither test calls `GET /docs-sync`.
+  - `testRecoveryRunsInEveryWorkspaceAndOneFailureDoesNotStopTheOthers` (tenancy harness: two workspaces with stuck runs; the first's recovery throws → the second is still recovered).
+  - Pruning (`DocsSyncPruneTest`, clock-driven, no card read): `testAnIdleSiteIsPrunedAcrossBothDeadlines` — a finished run that is `synced_run` and an older finished run, both with archive files: after 1 day + `DocsSyncPruneJob::handle()` both archive directories are gone and both rows remain; after 31 days the older run and its page rows are gone, `synced_run` and its page rows remain.
+  - Schedule step: `testProvisionRegistersBothTasksOnce` (run the step twice → one `scheduled_jobs` row per name, same uuid, `is_enabled` kept when an operator disabled it), `testWithoutTheSchedulerStoreItWarnsAndRegistersNothing`.
+- [ ] **Step 2:** Run the four files → FAIL.
 - [ ] **Step 3:** Implement. Time comes from an injectable clock (`\Psr\Clock\ClockInterface` if bound, else a small `DocsSyncClock` with `now(): \DateTimeImmutable`) so tests age leases without sleeping.
-- [ ] **Step 4:** Run both files → PASS.
-- [ ] **Step 5: Commit** `feat(docs-sync): reserve and dispatch a run; recovery and the watchdog`.
+- [ ] **Step 4:** Run the four files → PASS; run `thallo:provision` on the local site and check its output line and the two rows in `scheduled_jobs`.
+- [ ] **Step 5: Commit** `feat(docs-sync): reserve and dispatch a run; recurring recovery and pruning`.
 
 ### Task 6: The runner — lease, archive, fenced pages, finish
 
 **Files:**
 - Create: `core/src/Content/DocsSync/DocsSyncRunner.php`
-- Modify: `core/src/Content/Jobs/DocsSyncJob.php` (workspace entry exactly as `RunPaletteReplaceJob::handle()`, with `Workspace`/tenant context forgotten first so a long-lived worker starts clean; `$maxAttempts = 1`)
-- Test: `tests/Integration/DocsSync/DocsSyncRunnerTest.php`, `tests/Integration/DocsSync/DocsSyncFencingTest.php`, `tests/Integration/DocsSync/DocsSyncWorkspaceTest.php`
+- Modify: `core/src/Content/Jobs/DocsSyncJob.php` (workspace entry exactly as `RunPaletteReplaceJob::handle()`, with the tenant context forgotten first so a long-lived worker starts clean; `public function getMaxAttempts(): int { return 1; }`)
+- Test: `tests/Integration/DocsSync/DocsSyncRunnerTest.php`, `tests/Integration/DocsSync/DocsSyncFencingTest.php`, `tests/Integration/DocsSync/DocsSyncWorkspaceTest.php`, `tests/Integration/DocsSync/DocsSyncWorkerTimeoutTest.php`
 
 **Interfaces:**
 - Consumes: Task 1 `read()`/`writePage()`, Task 2 `within`, Task 3 store and fences, Task 4 client, Task 5 repository.
 - Produces: `DocsSyncRunner::run(string $runId): void` implementing §6.2–§6.3 and §7:
   - Claim: one `transaction()` — lease CAS (§6.2), `advanceStatus(running)`, `attempts + 1`; budget-spent and live-lease branches per §6.2 (live lease → `later(60, DocsSyncJob, payload)`).
-  - Resolve/download/read each under `ownerFence`, `.part` → check → rename → record `archive_path` (§6.3 step 2); extraction with `MarkdownZip::extract(..., within: $folder)` into a temp dir; `read()` with the source's options and `edit_base` `https://github.com/{repo}/edit/{edit_branch}/{folder}`; refusals → `refused`.
+  - **Network outside transactions.** Resolving and downloading hold no transaction open. The only database calls during them are the heartbeat, `GithubClient::download()`'s `$heartbeat` running `ownerFence` as its own one-statement transaction (at least every 30 s; false aborts the download), and two short transactions: after resolving { `ownerFence`; record `ref`, `sha` }, and after the `.part` → check → rename { `ownerFence`; record `archive_path` } — fenced out → delete own file, stop (§6.3 step 2). Extraction with `MarkdownZip::extract(..., within: $folder)` into a temp dir; `read()` with the source's options and `edit_base` `https://github.com/{repo}/edit/{edit_branch}/{folder}`; refusals → `refused`.
   - Each page not yet in `docs_sync_run_pages`: `transaction()` { `ownerFence` or stop; `cancel_requested` → finish `cancelled`; nested `transaction()` (savepoint) around `writePage()` with `dry_run` passed through; on throw the savepoint rolls back and the row is `failed` with the message; insert page row; `increment` }.
   - Finish: `transaction()` { `ownerFence`; `cancel_requested` → `cancelled`; `gone` rows from `MarkdownFolderRead::missing`; outcome from counters (§7 table); `synced_run` per §6.3 step 5; release slot; `finished` }; then delete own files.
-  - Fencing hook for tests: an optional `?\Closure $pause` called with `('page', $path)` before each page's write and `('download')` after the `.part` is written, injected only by tests.
+  - Fencing hook for tests: an optional `?\Closure $pause` called with `('page', $path)` inside each page's transaction just before the write, `('download')` after the `.part` is written and before `archive_path` is recorded, and `('finish')` inside the finishing transaction just after its `ownerFence` (Task 7's cancel-order tests use it). Injected only by tests; null in production.
 
 - [ ] **Step 1: Failing tests** — archives served by `MockHttpClient` from zips built in the test:
   - Runner: `testASyncWritesEveryPageAndLands` (outcome `success`, `synced_run` set, counters equal page rows), `testPartialFailedAndRefusedOutcomes` (one invalid page → `partial`; all invalid → `failed`; `within` matching nothing → `refused` with nothing written), `testAPageThatThrowsAfterItsDraftChangedLeavesNothing` (writer spy throws after `createDraft`: no entry, no draft, row `failed`, next page written), `testAHeldPublicationKeepsTheDraft` (review workflow on: `PublishBlocked` → row written with the message), `testPreviewWritesNothing` (run the real job from the queue with `dry_run`: no entry/draft/version/publication rows, `synced_run` unchanged; then `commit` writes them), `testMoreThanAThousandPagesCountExactly` (1,200 tiny pages), `testDeletedContentTypeIsRefused` (Review Focus 4), `testAHandImportFollowedBySyncUpdatesNotDuplicates` (run `MarkdownFolderImport::run()` on the same tree first).
   - Fencing: `testTwoDeliveriesWriteEachPageOnce`, `testATakeoverWaitsForThePageInFlightAndFencesTheOldAttempt` (two-process proof as the palette plan's Task 14: attempt A paused in a page via `$pause` in a child PHP process; parent attempts takeover/Release and watches it block (`pg_stat_activity` wait on PostgreSQL, or a busy wait on SQLite), releases A; A's page commits, A's next page is fenced; page content is B's), `testAStaleAttemptCannotRecordOrFinish`, `testAnAttemptKilledMidPageRollsThatPageBack` (child process `exit` inside the savepoint), `testOverlappingDownloadsKeepToTheirOwnFiles`, `testATruncatedDownloadIsDownloadedAgain`, `testAFastWorkerIsNotDowngradedByALateDispatched`.
+  - **Retry limit through a real delivery:** `testTheQueueDeliversTheSyncJobOnlyOnce` — push `DocsSyncJob` onto the database queue, make its handle throw, run a real `php glueful queue:work --queue=import-export --stop-when-empty` child process: the job is in failed jobs after one attempt, not three.
+  - **Cancel is not blocked by a download:** `testCancelDuringADownloadDoesNotWait` — `$pause('download')` holds the attempt; Cancel returns within a second and the attempt stops at its next heartbeat or record.
   - Workspace: `testAFreshWorkerRunsInTheRunsWorkspace`, `testTwoWorkspacesInARowDoNotLeak` (tenancy harness, `RetrofittedTenantTestCase`, so these run in the `tenancy-harness` CI job), `testAMissingWorkspaceFailsTheRunWithoutLooping` (Review Focus 5).
-- [ ] **Step 2:** Run the three files → FAIL.
+  - **Real worker timeout** (`DocsSyncWorkerTimeoutTest`; skipped when `pcntl_alarm` is unavailable): a 5-page run whose third page's `$pause('page', …)` sleeps 5 s; a real child `queue:work --queue=import-export --timeout=2 --stop-when-empty` is killed by its timeout mid-page; the delivery is not retried (failed jobs has it after one attempt); pages 1–2 have rows, page 3 none (rolled back). Then, with the clock past the 120 s lease, `DocsSyncRecoverJob::handle()` re-dispatches and a second worker (no pause) finishes: outcome `success`, five page rows, each page's entry written once. A variant spends the budget: every attempt times out → after the fifth, recovery finishes the run `interrupted` with the committed pages kept.
+- [ ] **Step 2:** Run the four files → FAIL.
 - [ ] **Step 3:** Implement `DocsSyncRunner` and the job.
-- [ ] **Step 4:** Run the three files → PASS; then `tests/Integration/Importers` → PASS.
+- [ ] **Step 4:** Run the four files → PASS; then `tests/Integration/Importers` → PASS.
 - [ ] **Step 5: Commit** `feat(docs-sync): the fenced, resumable sync runner`.
 
 ### Task 7: Cancel and Release
@@ -198,7 +215,7 @@ git commit -m "fix(importers): split the Markdown folder import into read and wr
 **Interfaces:**
 - Produces: `DocsSyncService::cancel(string $run): array{finished: bool, outcome: ?string}` and `release(string $run): array{released: bool}` per §6.5 (slot fence first; Cancel on an unleased run finishes `cancelled` in the same transaction; Release only when no lease or lease > 120 s, finishing `interrupted`; a live lease → `release` returns `released: false`).
 
-- [ ] **Step 1: Failing tests:** `testCancelDuringAPageLetsItCommitThenStops`, `testCancelBeforeTheLastPageFinishCommitsIsCancelled` and `testFinishBeforeCancelKeepsTheSuccess` (both orders, using the runner's `$pause` at finish), `testCancelOfAnUnclaimedRunFinishesItAtOnce`, `testReleaseRefusesALiveLease`, `testReleaseOfAStaleRunInterruptsItAndFencesTheOldAttempt`.
+- [ ] **Step 1: Failing tests:** `testCancelDuringAPageLetsItCommitThenStops`, `testCancelBeforeTheLastPageFinishCommitsIsCancelled` and `testFinishBeforeCancelKeepsTheSuccess` (both orders, using the runner's `$pause('finish')` from Task 6 in a child process, Cancel from the parent), `testCancelOfAnUnclaimedRunFinishesItAtOnce`, `testReleaseRefusesALiveLease`, `testReleaseOfAStaleRunInterruptsItAndFencesTheOldAttempt`.
 - [ ] **Step 2:** Run → FAIL. **Step 3:** Implement. **Step 4:** Run → PASS.
 - [ ] **Step 5: Commit** `feat(docs-sync): cancel and release, ordered by the state lock`.
 
@@ -246,7 +263,7 @@ git commit -m "fix(importers): split the Markdown folder import into read and wr
 - Modify: `docs/documentation-sites.md` (new section "From a GitHub repo", §10), `CHANGELOG.md` (`[Unreleased]` → `### Added`)
 - Test: `vendor/bin/phpunit tests/Unit/Docs`
 
-- [ ] **Step 1:** Write the docs section: set up, Sync now / Preview, what it reads and refuses, each outcome, that it needs a worker taking the `import-export` queue, and that runs are kept 30 days except the last sync.
+- [ ] **Step 1:** Write the docs section: set up, Sync now / Preview, what it reads and refuses, each outcome, that it needs a worker taking the `import-export` queue and the scheduler running (`queue:scheduler run` from cron) for a stuck sync to be recovered on its own, that `thallo:provision` registers the two tasks (and warns when the scheduler's database store is off), and that runs are kept 30 days except the last sync.
 - [ ] **Step 2:** CHANGELOG `### Added`: "**Documentation from a GitHub repo.** Settings › Import / Export can follow a public GitHub repo's docs folder, at its latest release tag or a branch: **Sync now** brings the pages to it, **Preview** shows what would change, and the card keeps each sync's outcome and pages."
 - [ ] **Step 3:** `vendor/bin/phpunit tests/Unit/Docs` → PASS.
 - [ ] **Step 4: Manual end-to-end** on the local site against the real `glueful/thallo`, `docs`, latest release, a worker on `import-export`: Preview, then Sync now; a second Sync now reports all unchanged; edit the source to a branch and back.
