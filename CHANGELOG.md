@@ -8,6 +8,11 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **Documentation from a GitHub repo.** Settings › Import / Export can follow a public GitHub
+  repo's docs folder, at its latest release tag or a branch: **Sync now** brings the pages to it,
+  **Preview** shows what would change, and the card keeps each sync's outcome and pages. It says
+  when the repo has moved since the last sync. `thallo:provision` schedules the recovery of a sync
+  whose worker died. See [a documentation section on your site](docs/documentation-sites.md).
 - **Check for updates from anywhere in the admin.** Clicking the Thallo version at the foot of the
   sidebar opens **Check for updates**, with when the site last checked. It was only on Utilities ›
   Health, so finding out about a release before the daily 04:00 check meant knowing to look there.

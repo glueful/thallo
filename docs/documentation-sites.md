@@ -64,6 +64,55 @@ was given that queue is running, or when a cron line drains it
 ([the scheduler and the queue](operations/03-scheduler-and-queues.md)). Until then the job reads
 "queued".
 
+## From a GitHub repo
+
+A site whose docs live in a public GitHub repository can follow it, so a new release of the docs
+is one click away. Under **Settings › Import / Export**, **Documentation from GitHub**:
+
+1. Give the **repository** (`owner/name`, e.g. `glueful/thallo`), the **folder** that holds the
+   pages (`docs`), and what to **follow**: the **latest release tag** (pre-releases included or
+   not) or a **branch**. Choose the content type, whether the pages are published, and folders to
+   leave out. Saving checks the repository with GitHub: it must be public, and have a version tag
+   or the branch.
+2. Press **Preview** to see what a sync would change, page by page, with nothing written. Press
+   **Sync now** to bring the pages to that version.
+3. Each time you open the card it says whether the repository has moved since the last sync:
+   "v1.0.0-beta.110 is out", the branch has new commits, or the tag you synced now points elsewhere.
+   It only reads: nothing is imported until you press Sync now.
+
+The latest release is the highest version **tag**, by semantic versioning, not GitHub's
+"latest release" page, which a repository that only pushes tags never updates. Each sync downloads
+GitHub's archive of exactly one commit, the one the tag or branch pointed at, and reads only the
+chosen folder: Markdown elsewhere in the repository (its README, a package's CHANGELOG) never
+becomes a page. A page is found again by its path, so pages you imported by hand before are
+updated, not made twice. "Edit this page" links point at the repository's default branch, or the
+branch you follow.
+
+What a sync ends with:
+
+- **Up to date**: every page written or unchanged.
+- **Synced with errors**: some pages failed (each one's reason is under **pages**); the rest landed.
+- **Refused**: nothing was written, because the folder holds no pages (its name must match the
+  repository's, letter case included), the content type is gone, or GitHub refused the repository
+  or tag.
+- **Failed**: every page failed, or the archive could not be used.
+- **Cancelled**: you pressed **Cancel**; the sync stopped after the page it was writing.
+- **Interrupted**: the sync stopped reporting in (a worker died) and was released, or it did not
+  finish in five attempts. Pages it wrote stay.
+
+Pages whose file is gone from the folder are listed, never deleted.
+
+It needs a queue worker taking the `import-export` queue (see
+[the scheduler and the queue](operations/03-scheduler-and-queues.md)), and the scheduler running
+from cron so that a sync whose worker died is picked up again on its own. `thallo:provision` adds
+the two scheduled tasks that do this, `docs_sync_recover` (every five minutes) and `docs_sync_prune`
+(daily), to the scheduler's database store; with that store off (`SCHEDULE_DATABASE_STORE=false`) it
+says so, and a stuck sync is picked up only when the card is opened. Syncs are kept for 30 days
+(`import_export.retention_days`), the last one that landed for as long as it is the last; their
+downloaded archives are deleted a day after each finishes. GitHub allows a server 60 anonymous
+requests an hour: the card checks at most once every five minutes, and says when the limit is
+reached.
+
 ## The content type
 
 `thallo:docs:setup` makes an ordinary content type; you can open it under Settings › Content
