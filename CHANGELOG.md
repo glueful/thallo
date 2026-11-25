@@ -5,7 +5,11 @@ All notable changes to Thallo are documented here. Format:
 [SemVer](https://semver.org/spec/v2.0.0.html). Release tags are immutable — corrections ship
 as the next release, never a mutated tag.
 
-## [Unreleased]
+## [1.0.0-beta.109] - 2026-11-25 — Developer Preview
+
+Resized images are made once, at upload, and kept, so no visitor waits for one; images on cloud
+storage can load straight from the bucket; renaming a file no longer counts as changing it.
+Requires glueful/framework 1.93.
 
 ### Changed
 - **Resized images are made once, at upload, and kept.** Each width a page or the media library asks
@@ -26,6 +30,16 @@ as the next release, never a mutated tag.
 - **Renaming a file in the media library no longer counts as changing it.** A new title moved the
   file's version, so its page URLs changed (browsers and a CDN fetched it again) and every resized
   copy was made again. Only replacing the file, or **Optimize image**, does that now.
+
+### Upgrade Notes
+- `composer update glueful/thallo-core -W && php glueful thallo:provision`, then
+  `php glueful queue:restart`. Requires glueful/framework 1.93, which the update brings.
+- Copies are made at upload by a queue worker taking the `default` queue; without one they are made
+  on first request, as before. Images already in the library are not backfilled: each width is made
+  on its first request and kept from then on.
+- Resized copies now take disk space under `_variants/` beside your uploads (twenty per image from
+  the upload, at most 32) instead of app cache memory, and are part of what `storage/uploads/`
+  backups carry. Nothing to add to `config/uploads.php`.
 
 ## [1.0.0-beta.108] - 2026-11-19 — Developer Preview
 
