@@ -29,6 +29,8 @@ final class DocsSyncApiTest extends AppTestCase
 
     private bool $githubDown = false;
 
+    private int $githubRequests = 0;
+
     private RecordingQueue $queue;
 
     protected function setUp(): void
@@ -49,6 +51,7 @@ final class DocsSyncApiTest extends AppTestCase
     private function controller(): DocsSyncController
     {
         $github = new GithubClient(new MockHttpClient(function (string $method, string $url): MockResponse {
+            $this->githubRequests++;
             if ($this->githubDown) {
                 return new MockResponse('', ['error' => 'connection refused']);
             }
@@ -200,6 +203,22 @@ final class DocsSyncApiTest extends AppTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('unreachable', self::data($response)['note']['state']);
+    }
+
+    public function testAFailedNoteIsCachedBriefly(): void
+    {
+        // Review M2: while GitHub is down, the card's 2-second polling does not ask it every time.
+        $controller = $this->controller();
+        $controller->saveSource(self::json('PUT', self::source()));
+        $this->githubDown = true;
+        $this->container()->get(CacheStore::class)->clear();
+
+        $controller->show();
+        $asked = $this->githubRequests;
+        $note = self::data($controller->show())['note'];
+
+        self::assertSame('unreachable', $note['state']);
+        self::assertSame($asked, $this->githubRequests, 'the second poll did not ask GitHub');
     }
 
     public function testRemovingTheSource(): void

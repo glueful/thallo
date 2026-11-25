@@ -112,6 +112,38 @@ final class DocsSyncRecoveryTest extends AppTestCase
         self::assertSame('cancelled', $this->runRow($run)['outcome']);
     }
 
+    public function testARefusedStartRunsRecovery(): void
+    {
+        // Review M3 (§6.4): a start refused because a stuck run holds the slot recovers that run.
+        $run = $this->started();
+        $this->setRun($run, ['status' => 'reserved', 'last_dispatch_at' => null, 'created_at' => self::ago(150)]);
+
+        try {
+            $this->service($this->queue)->start('commit', null);
+            self::fail('The slot is held.');
+        } catch (\Thallo\Core\Content\DocsSync\DocsSyncConflict $e) {
+            self::assertSame('running', $e->reason);
+        }
+
+        self::assertCount(1, $this->queue->pushed, 'the stuck run was dispatched again');
+        self::assertSame($run, $this->queue->pushed[0]['data']['run']);
+    }
+
+    public function testACancelledRunWhoseAttemptDiedIsFinishedNotRedispatched(): void
+    {
+        // Review M5: an expired lease and a Cancel already asked for: cancelled now.
+        $run = $this->started();
+        $this->setRun($run, ['status' => 'running', 'attempts' => 1, 'cancel_requested' => true,
+            'last_dispatch_at' => self::ago(150)]);
+        $this->setState(['lease_token' => 'dead', 'lease_at' => self::ago(200)]);
+
+        $this->recover();
+
+        self::assertSame('cancelled', $this->runRow($run)['outcome']);
+        self::assertSame([], $this->queue->pushed);
+        self::assertNull($this->stateRow()['active_run']);
+    }
+
     public function testARequestKilledBeforeDispatchIsRecoveredByTheRecurringTask(): void
     {
         // The other-driver path: the reservation committed, the process died before the push.

@@ -173,7 +173,11 @@ async function onStart(mode: 'commit' | 'dry_run') {
             </UButton>
           </li>
         </ul>
-        <DocsSyncRunPages v-if="openRun" :run-id="openRun" />
+        <DocsSyncRunPages
+          v-if="openRun"
+          :run-id="openRun"
+          :content-type="source?.content_type ?? 'docs'"
+        />
       </div>
     </div>
   </UCard>

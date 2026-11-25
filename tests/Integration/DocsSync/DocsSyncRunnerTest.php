@@ -290,6 +290,77 @@ final class DocsSyncRunnerTest extends AppTestCase
         self::assertStringContainsString('could not be reached', (string) $row['message']);
     }
 
+    public function testARunThatEndsWithoutLandingDeletesItsArchive(): void
+    {
+        // Review M6: a run refused after its download keeps no 13 MB archive for the daily prune.
+        $this->saveSource(['folder' => 'Docs']);
+        $this->repoFiles = ['one.md' => "# One\n"];
+        $run = $this->startRun();
+
+        $this->runner()->run($run);
+
+        self::assertSame('refused', $this->runRow($run)['outcome']);
+        self::assertFalse(
+            $this->container()->get(\Glueful\Storage\StorageManager::class)->disk('uploads')
+                ->directoryExists('docs-sync/' . $run),
+        );
+    }
+
+    public function testAFinishedRunDeletesItsArchiveFolder(): void
+    {
+        $this->repoFiles = ['one.md' => "# One\n"];
+        $run = $this->startRun();
+
+        $this->runner()->run($run);
+
+        self::assertFalse(
+            $this->container()->get(\Glueful\Storage\StorageManager::class)->disk('uploads')
+                ->directoryExists('docs-sync/' . $run),
+        );
+    }
+
+    public function testPageRowsRecordTheirEntryAndGoneRowsTheEntryLeftBehind(): void
+    {
+        // Review M9: the pages list can link to each entry.
+        $this->repoFiles = ['one.md' => "# One\n", 'two.md' => "# Two\n"];
+        $run = $this->startRun();
+        $this->runner()->run($run);
+        $type = (string) $this->container()->get(\Thallo\Contracts\Schema\ContentTypeReader::class)
+            ->findUuidBySlug('docs');
+        $up = $this->container()->get(\Thallo\Contracts\Authoring\ContentUpserter::class);
+        $pages = array_column(
+            $this->container()->get(\Thallo\Core\Content\DocsSync\DocsSyncRunRepository::class)->pages($run),
+            null,
+            'path',
+        );
+        self::assertSame($up->findBySlug($type, 'en', 'one'), $pages['one.md']['entry_uuid']);
+
+        $this->repoFiles = ['one.md' => "# One\n"];
+        $next = $this->startRun();
+        $this->runner()->run($next);
+        $gone = array_column(
+            $this->container()->get(\Thallo\Core\Content\DocsSync\DocsSyncRunRepository::class)->pages($next),
+            null,
+            'path',
+        )['two.md'];
+        self::assertSame('gone', $gone['status']);
+        self::assertSame($up->findBySlug($type, 'en', 'two'), $gone['entry_uuid']);
+    }
+
+    public function testTheRepositoryRootHoldingNoPagesSaysSo(): void
+    {
+        // Review M10: not "The folder `` holds no pages."
+        $this->saveSource(['folder' => '']);
+        $this->repoFiles = [];
+        $this->withReadme = false;
+        $run = $this->startRun();
+
+        $this->runner()->run($run);
+
+        self::assertSame('refused', $this->runRow($run)['outcome']);
+        self::assertStringNotContainsString('``', (string) $this->runRow($run)['message']);
+    }
+
     public function testATruncatedDownloadIsDownloadedAgain(): void
     {
         $this->repoFiles = ['one.md' => "# One\n"];

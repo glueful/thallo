@@ -77,6 +77,8 @@ export interface DocsRunPage {
   status: 'created' | 'updated' | 'unchanged' | 'skipped' | 'failed' | 'gone'
   message: string | null
   broken_links: string | null
+  /** The entry the page wrote, or (gone) the entry its file left behind. */
+  entry_uuid: string | null
 }
 
 const num = (v: unknown): number => (typeof v === 'number' ? v : Number(v ?? 0) || 0)

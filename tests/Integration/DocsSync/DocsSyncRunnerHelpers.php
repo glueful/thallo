@@ -40,12 +40,19 @@ trait DocsSyncRunnerHelpers
 
     protected int $archiveRequests = 0;
 
+    /** Whether the archive has a README at the repository root (Markdown outside docs/). */
+    protected bool $withReadme = true;
+
     protected function archiveBytes(): string
     {
         $path = sys_get_temp_dir() . '/thallo-repo-' . bin2hex(random_bytes(4)) . '.zip';
         $zip = new \ZipArchive();
         $zip->open($path, \ZipArchive::CREATE);
-        $zip->addFromString('thallo-' . self::SHA . '/README.md', "# Repo readme\n");
+        if ($this->withReadme) {
+            $zip->addFromString('thallo-' . self::SHA . '/README.md', "# Repo readme\n");
+        } else {
+            $zip->addFromString('thallo-' . self::SHA . '/LICENSE', "MIT\n");
+        }
         foreach ($this->repoFiles as $name => $contents) {
             $zip->addFromString('thallo-' . self::SHA . '/docs/' . $name, $contents);
         }

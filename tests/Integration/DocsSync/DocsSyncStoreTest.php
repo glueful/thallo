@@ -94,6 +94,8 @@ final class DocsSyncStoreTest extends AppTestCase
         yield 'folder absolute' => [['folder' => '/docs'], 'folder'];
         yield 'follow unknown' => [['follow' => 'tag'], 'follow'];
         yield 'branch missing' => [['follow' => 'branch', 'branch' => ''], 'branch'];
+        yield 'repo named dot' => [['repo' => 'owner/.'], 'repo'];
+        yield 'repo named dot-dot' => [['repo' => 'owner/..'], 'repo'];
     }
 
     /** @dataProvider badSources */
@@ -105,6 +107,33 @@ final class DocsSyncStoreTest extends AppTestCase
         } catch (\InvalidArgumentException $e) {
             self::assertStringContainsString($field, $e->getMessage());
         }
+    }
+
+    public function testADotGithubRepoIsStillAccepted(): void
+    {
+        self::assertSame('acme/.github', self::source(['repo' => 'acme/.github'])->repo);
+    }
+
+    public function testEditLinksEncodeTheFolder(): void
+    {
+        $source = self::source(['folder' => 'my docs/a#b?c', 'edit_branch' => 'release/1.x']);
+
+        self::assertSame(
+            'https://github.com/glueful/thallo/edit/release%2F1.x/my%20docs/a%23b%3Fc',
+            $source->editBase(),
+        );
+    }
+
+    public function testAStatusThatIsFinishedIgnoresALateDispatch(): void
+    {
+        // Review M7: the after-commit dispatch path writes nothing to a run that already finished.
+        $this->insertRun('run000000001', 'finished');
+
+        $this->container()->get(\Thallo\Core\Content\DocsSync\DocsSyncRunRepository::class)
+            ->markDispatched('run000000001');
+
+        $row = $this->connection()->table('docs_sync_runs')->where('id', '=', 'run000000001')->first();
+        self::assertNull($row['last_dispatch_at']);
     }
 
     public function testFencesAffectOneRowOnlyForTheOwner(): void
