@@ -7,15 +7,16 @@ namespace Thallo\Core\Tests\Integration\Content;
 use Glueful\Helpers\Utils;
 use Glueful\Queue\QueueManager;
 use Glueful\Storage\StorageManager;
+use Glueful\Uploader\BlobVersion;
 use Glueful\Uploader\Jobs\GenerateBlobVariantsJob;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Core\Http\Controllers\MediaAdminController;
 use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
- * Optimize rewrites an image in place, which gives it a new version: its stored resized copies no
- * longer match, so the copies the site's pages ask for are queued again rather than left for the
- * next visitor to wait on.
+ * An image's version (its size and last change) names its stored resized copies. Optimize rewrites
+ * the bytes, a new version: the copies the site's pages ask for are queued again rather than left
+ * for the next visitor to wait on. A rename keeps the bytes, and so the version and its copies.
  */
 final class MediaOptimizeVariantsTest extends AppTestCase
 {
@@ -102,6 +103,32 @@ final class MediaOptimizeVariantsTest extends AppTestCase
 
         self::assertFalse(json_decode((string) $again->getContent(), true)['data']['changed']);
         self::assertSame([], $this->queue->pushed, 'unchanged bytes keep their copies');
+    }
+
+    public function testRenamingAnImageKeepsItsVersionAndItsCopies(): void
+    {
+        // A new title is not new bytes: the image's version (its size and last change) names its
+        // stored copies and its page URLs (?v=), so a rename must not make them all again or send
+        // browsers and CDNs for a fresh copy.
+        $uuid = $this->seedUncompressedPng();
+        $this->connection()->table('blobs')->where('uuid', '=', $uuid)
+            ->update(['updated_at' => '2026-11-01 10:00:00']);
+        $before = BlobVersion::of((array) $this->connection()->table('blobs')->where('uuid', '=', $uuid)->first());
+
+        $response = $this->container()->get(MediaAdminController::class)->update(
+            Request::create(
+                '/v1/admin/media/' . $uuid,
+                'PATCH',
+                content: (string) json_encode(['title' => 'Harbour at dusk']),
+            ),
+            $uuid,
+        );
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $row = (array) $this->connection()->table('blobs')->where('uuid', '=', $uuid)->first();
+        self::assertSame('Harbour at dusk', $row['name']);
+        self::assertSame($before, BlobVersion::of($row));
+        self::assertSame([], $this->queue->pushed);
     }
 
     /** A PNG stored without compression, so optimizing it always makes it smaller. */

@@ -21,6 +21,11 @@ as the next release, never a mutated tag.
   `UPLOADS_VARIANT_REDIRECT_TTL=3600` answers a public image's stored copy with a redirect to a
   signed URL instead of streaming it through PHP. Off by default.
 
+### Fixed
+- **Renaming a file in the media library no longer counts as changing it.** A new title moved the
+  file's version, so its page URLs changed (browsers and a CDN fetched it again) and every resized
+  copy was made again. Only replacing the file, or **Optimize image**, does that now.
+
 ## [1.0.0-beta.108] - 2026-11-19 — Developer Preview
 
 Text on a White or Black background is readable in both colour modes: a white card no longer shows
