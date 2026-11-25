@@ -58,6 +58,10 @@ return [
         'max_variant_bytes' => (int) env('UPLOADS_MAX_VARIANT_BYTES', 5 * 1024 * 1024), // 5MB max for resized
         'cache_enabled' => env('UPLOADS_CACHE_ENABLED', true),
         'cache_ttl' => (int) env('UPLOADS_CACHE_TTL', 604800), // 7 days
+        // Resized copies are stored beside each image until it changes. Thallo has the queue
+        // worker make, at upload, every width its theme and media library ask for
+        // (UPLOADS_PREGENERATE_VARIANTS=false: on request). A 'pregenerate' block here
+        // (enabled, queue, widths, formats, mime_types) replaces Thallo's.
     ],
 
     // Auto-generate thumbnails on upload (disabled by default - use on-demand resize instead)

@@ -105,7 +105,7 @@ These are the queues Thallo dispatches to:
 
 | Queue | What arrives on it |
 |---|---|
-| `default` | Style class detach-everywhere and remove-everywhere jobs, content type and block type backfills, filter-index jobs |
+| `default` | Style class detach-everywhere and remove-everywhere jobs, content type and block type backfills, filter-index jobs, resized copies of uploaded images |
 | `import-export` | Imports and exports started from **Settings › Import / Export** |
 | `webhooks` | Content webhook deliveries and their retries (`WEBHOOKS_QUEUE` renames it) — see [webhooks](../guides/16-webhooks.md) |
 | `tenancy-purge`, `tenancy-maintenance` | Workspace purges and host-cooldown sweeps, once workspaces are on |
