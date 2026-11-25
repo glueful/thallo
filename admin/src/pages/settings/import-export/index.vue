@@ -28,7 +28,6 @@ import { runtimeConfig } from '@/runtime/config'
 import { useNotify } from '@/composables/useNotify'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import MarkdownFolderFields from './MarkdownFolderFields.vue'
-import DocsSyncCard from './DocsSyncCard.vue'
 import { MARKDOWN_FOLDER, folderOptions, reportLines } from './markdownFolder'
 import { importerChoices } from './importerChoices'
 
@@ -359,8 +358,6 @@ function fmtTime(v?: string | null): string {
           Markdown as a .zip (a documentation section), or a WordPress export (WXR). Jobs run in the
           background — they progress only while a queue worker is running.
         </p>
-
-        <DocsSyncCard :content-types="contentTypes ?? []" />
 
         <div class="grid gap-6 md:grid-cols-2">
           <!-- Export -->

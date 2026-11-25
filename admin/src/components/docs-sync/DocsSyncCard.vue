@@ -16,7 +16,7 @@ import {
   type DocsRun,
 } from '@/queries/docsSync'
 import { useNotify } from '@/composables/useNotify'
-import type { TypeLike } from './markdownFolder'
+import type { TypeLike } from '@/pages/settings/import-export/markdownFolder'
 import DocsSyncForm from './DocsSyncForm.vue'
 import DocsSyncRunPages from './DocsSyncRunPages.vue'
 

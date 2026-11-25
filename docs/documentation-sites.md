@@ -67,9 +67,12 @@ was given that queue is running, or when a cron line drains it
 ## From a GitHub repo
 
 A site whose docs live in a public GitHub repository can follow it, so a new release of the docs
-is one click away. Under **Settings › Import / Export**, **Documentation from GitHub**:
+is one click away. It lives on the docs pages list (**Content › Docs**): a docs section with no
+source shows **Sync from GitHub** above its pages; once one is saved, the bar there says what the
+pages were synced from and whether the repository has moved, with **Sync now**, and **⋯** opens the
+history, Preview and the source.
 
-1. Give the **repository** (`owner/name`, e.g. `glueful/thallo`), the **folder** that holds the
+1. Press **Sync from GitHub** and give the **repository** (`owner/name`, e.g. `glueful/thallo`), the **folder** that holds the
    pages (`docs`), and what to **follow**: the **latest release tag** (pre-releases included or
    not) or a **branch**. Choose the content type, whether the pages are published, and folders to
    leave out. Saving checks the repository with GitHub: it must be public, and have a version tag

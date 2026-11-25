@@ -115,6 +115,26 @@ final class DocsSyncCancelTest extends AppTestCase
         self::assertNull($this->stateRow()['active_run']);
     }
 
+    public function testAJustQueuedRunCannotBeReleased(): void
+    {
+        // A sync waiting for its worker is not stuck: Release is for one that waited over two
+        // minutes, or whose worker stopped reporting in.
+        $run = $this->startRun();
+
+        self::assertSame(['released' => false], $this->service()->release($run));
+        self::assertSame($run, $this->stateRow()['active_run']);
+        self::assertNotSame('finished', $this->runRow($run)['status']);
+    }
+
+    public function testARunWaitingOverTwoMinutesForAWorkerCanBeReleased(): void
+    {
+        $run = $this->startRun();
+        $this->setRun($run, ['last_dispatch_at' => self::ago(150), 'created_at' => self::ago(150)]);
+
+        self::assertSame(['released' => true], $this->service()->release($run));
+        self::assertSame('interrupted', $this->runRow($run)['outcome']);
+    }
+
     public function testReleaseRefusesALiveLease(): void
     {
         $run = $this->startRun();

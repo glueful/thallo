@@ -7,7 +7,7 @@ import { ApiError } from '@/api/errors'
 import { useSaveDocsSource, type DocsSource } from '@/queries/docsSync'
 import { useSetupDocs } from '@/queries/docs'
 import { useNotify } from '@/composables/useNotify'
-import { pageTypes, type TypeLike } from './markdownFolder'
+import { pageTypes, type TypeLike } from '@/pages/settings/import-export/markdownFolder'
 
 const props = defineProps<{ source: DocsSource | null; contentTypes: TypeLike[] }>()
 const emit = defineEmits<{ saved: []; cancel: [] }>()

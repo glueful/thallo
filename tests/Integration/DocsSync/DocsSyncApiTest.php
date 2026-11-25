@@ -146,6 +146,18 @@ final class DocsSyncApiTest extends AppTestCase
         self::assertSame([], self::data($controller->runPages($run))['pages']);
     }
 
+    public function testAJustQueuedRunIsNotOfferedForRelease(): void
+    {
+        $controller = $this->controller();
+        $controller->saveSource(self::json('PUT', self::source()));
+        $run = (string) self::data($controller->start(self::json('POST', ['mode' => 'commit'])))['run']['id'];
+
+        self::assertFalse(self::data($controller->show())['releasable']);
+
+        $this->setRun($run, ['last_dispatch_at' => self::ago(150), 'created_at' => self::ago(150)]);
+        self::assertTrue(self::data($controller->show())['releasable']);
+    }
+
     public function testTheNoteComparesCommitsNotTagNames(): void
     {
         $controller = $this->controller();
