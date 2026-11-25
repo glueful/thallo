@@ -139,6 +139,30 @@ final class DocsSyncFencingTest extends AppTestCase
             ->listContents('docs-sync/' . $run)->toArray(), 'and deleted its own file');
     }
 
+    public function testAFencedOutFinishLeavesTheRunsArchiveAlone(): void
+    {
+        // Review I1: a stalled attempt whose finish is fenced out must not delete the archive its
+        // successor is reading.
+        $run = $this->startRun();
+        $attempt = $this->runner();
+        $attempt->pauseAt(function (string $at): void {
+            if ($at === 'before-finish') {
+                $this->connection()->table('docs_sync_state')->where('site', '=', 'site')
+                    ->update(['lease_token' => 'successor']);
+            }
+        });
+
+        $attempt->run($run);
+
+        $archive = (string) $this->runRow($run)['archive_path'];
+        self::assertNotSame('', $archive);
+        self::assertTrue(
+            $this->container()->get(StorageManager::class)->disk('uploads')->fileExists($archive),
+            'the successor still has its archive',
+        );
+        self::assertSame('running', $this->runRow($run)['status']);
+    }
+
     public function testAnAttemptKilledMidPageRollsThatPageBack(): void
     {
         $run = $this->startRun();

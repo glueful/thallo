@@ -115,6 +115,17 @@ final class GithubClientTest extends TestCase
         self::assertSame('v2.0.0-rc.1', $client->latestRelease('a/b', true)['tag']);
     }
 
+    public function testBranchLikeAndCalendarTagsNeverWin(): void
+    {
+        // Review I3: Composer reads `master` as dev-master and `20240101` as a stable version.
+        $tags = ['v1.0.0', 'v1.1.0-beta.2', 'master', 'trunk', '1.x-dev', '20240101'];
+        $client = $this->client(['/repos/a/b/git/matching-refs/tags/' => self::json(self::refs($tags))]);
+        self::assertSame('v1.1.0-beta.2', $client->latestRelease('a/b', true)['tag']);
+
+        $client = $this->client(['/repos/a/b/git/matching-refs/tags/' => self::json(self::refs($tags))]);
+        self::assertSame('v1.0.0', $client->latestRelease('a/b', false)['tag']);
+    }
+
     public function testAnnotatedTagResolvesToItsCommit(): void
     {
         $client = $this->client([
@@ -236,6 +247,21 @@ final class GithubClientTest extends TestCase
         $client = $this->client(['/a/b/zip/' . $sha => $html]);
         $this->expectException(GithubRefused::class);
         $client->download('a/b', $sha, $this->tmp . '/h.zip', 1_000_000, static fn (): bool => true);
+    }
+
+    public function testACompleteBodyThatIsNotAZipIsNotWorthRetrying(): void
+    {
+        // Review I2: codeload streams without a length; a body that arrived whole but is not a zip
+        // will not become one on the next attempt.
+        $sha = str_repeat('b', 40);
+        $client = $this->client(['/a/b/zip/' . $sha => new MockResponse('<html>sign in</html>', ['http_code' => 200])]);
+
+        try {
+            $client->download('a/b', $sha, $this->tmp . '/n.zip', 1_000_000, static fn (): bool => true);
+            self::fail('Expected a refusal.');
+        } catch (GithubRefused $e) {
+            self::assertFalse($e->transient);
+        }
     }
 
     public function testAHeartbeatThatFailsAbortsTheDownload(): void

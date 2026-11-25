@@ -171,6 +171,24 @@ final class DocsSyncApiTest extends AppTestCase
         self::assertSame('v1.1.0', $note['followed']['ref']);
     }
 
+    public function testTheCachedNoteBelongsToTheSourceItWasMadeFor(): void
+    {
+        // Review M1: two workspaces can sit at the same revision with different sources; a note
+        // cached for one is never shown for the other. Here: the same revision, another follow.
+        $controller = $this->controller();
+        $controller->saveSource(self::json('PUT', self::source()));
+        self::assertSame('v1.0.0', self::data($controller->show())['note']['followed']['ref']);
+
+        $row = $this->stateRow();
+        $source = json_decode((string) $row['source'], true);
+        $source['follow'] = 'branch';
+        $source['branch'] = 'develop';
+        $this->setState(['source' => json_encode($source)]);
+
+        $note = self::data($controller->show())['note'];
+        self::assertNotSame('v1.0.0', $note['followed']['ref'] ?? null);
+    }
+
     public function testTheNoteSurvivesGithubBeingDown(): void
     {
         $controller = $this->controller();

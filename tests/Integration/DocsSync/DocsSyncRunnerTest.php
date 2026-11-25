@@ -174,6 +174,74 @@ final class DocsSyncRunnerTest extends AppTestCase
         self::assertNull($this->stateRow()['active_run']);
     }
 
+    public function testImportersSwitchedOffIsRefusedWithItsReason(): void
+    {
+        // Review M4: the capability gate throws a ForbiddenException; the run is refused, not left
+        // to die five times with no reason.
+        $this->repoFiles = ['one.md' => "# One\n"];
+        $inner = $this->container()->get(\Thallo\Contracts\Capability\CapabilityRegistry::class);
+        $off = new class ($inner) implements \Thallo\Contracts\Capability\CapabilityRegistry {
+            public function __construct(private readonly \Thallo\Contracts\Capability\CapabilityRegistry $inner)
+            {
+            }
+
+            public function register(\Thallo\Contracts\Capability\Capability $capability): void
+            {
+                $this->inner->register($capability);
+            }
+
+            public function all(): array
+            {
+                return $this->inner->all();
+            }
+
+            public function enabled(): array
+            {
+                return $this->inner->enabled();
+            }
+
+            public function isEnabled(string $id): bool
+            {
+                return $id !== 'thallo.importers' && $this->inner->isEnabled($id);
+            }
+
+            public function isRequestedEnabled(string $id): bool
+            {
+                return $this->inner->isRequestedEnabled($id);
+            }
+
+            public function availability(string $id): \Thallo\Contracts\Capability\CapabilityAvailability
+            {
+                return $this->inner->availability($id);
+            }
+        };
+        $c = $this->container();
+        $folders = new \Thallo\Importers\Markdown\MarkdownFolderImport(
+            $this->writer(),
+            $c->get(\Thallo\Contracts\Authoring\ContentUpserter::class),
+            $c->get(\Thallo\Contracts\Schema\ContentTypeReader::class),
+            $off,
+        );
+        $runner = new \Thallo\Core\Content\DocsSync\DocsSyncRunner(
+            $this->connection(),
+            $c->get(\Thallo\Core\Content\DocsSync\DocsSyncStore::class),
+            $c->get(\Thallo\Core\Content\DocsSync\DocsSyncRunRepository::class),
+            $this->github(),
+            $folders,
+            $c->get(\Glueful\Storage\StorageManager::class),
+            new RecordingQueue(),
+            $this->appContext(),
+        );
+        $run = $this->startRun();
+
+        $runner->run($run);
+
+        $row = $this->runRow($run);
+        self::assertSame('refused', $row['outcome']);
+        self::assertStringContainsString('thallo.importers', (string) $row['message']);
+        self::assertNull($this->stateRow()['active_run']);
+    }
+
     public function testAHandImportFollowedBySyncUpdatesNotDuplicates(): void
     {
         $this->repoFiles = ['guides/one.md' => "# One\n"];
@@ -195,6 +263,31 @@ final class DocsSyncRunnerTest extends AppTestCase
         $paths = $this->container()->get(\Thallo\Contracts\Authoring\ContentUpserter::class)
             ->fieldValues($type, 'en', 'source_path');
         self::assertSame(['guides/one.md'], array_values($paths), 'found again, not duplicated');
+    }
+
+    public function testAnUnreachableGithubIsRecordedAndEndsFailedWithItsReason(): void
+    {
+        // Review I2: retried within the budget; once it is spent, the run is `failed` with the
+        // reason, not `interrupted` with none.
+        $this->repoFiles = ['one.md' => "# One\n"];
+        $this->archiveOnce = fn (): MockResponse => new MockResponse('', ['error' => 'connection refused']);
+        $run = $this->startRun();
+
+        try {
+            $this->runner()->run($run);
+            self::fail('The attempt ends, for recovery to retry.');
+        } catch (\Thallo\Core\Content\DocsSync\GithubRefused $e) {
+            self::assertTrue($e->transient);
+        }
+        self::assertStringContainsString('could not be reached', (string) $this->runRow($run)['message']);
+
+        $this->setRun($run, ['attempts' => 5]);
+        $this->setState(['lease_at' => self::ago(200)]);
+        $this->service()->recover();
+
+        $row = $this->runRow($run);
+        self::assertSame('failed', $row['outcome']);
+        self::assertStringContainsString('could not be reached', (string) $row['message']);
     }
 
     public function testATruncatedDownloadIsDownloadedAgain(): void
