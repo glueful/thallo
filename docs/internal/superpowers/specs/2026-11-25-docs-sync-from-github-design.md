@@ -1,6 +1,6 @@
 # Docs sync from GitHub — design
 
-Status: revision 5 (2026-11-25). Core, importers pack, tenancy pack (table registration) and admin.
+Status: revision 5 (2026-11-25). Reviewed; awaiting the owner's approval. Core, importers pack, tenancy pack (table registration) and admin.
 No framework change.
 
 Revision 5 tightens revision 4's contracts after its review, with no change of architecture:
@@ -275,8 +275,9 @@ random token, in one statement:
 
 - **Claimed:** this attempt owns the run. In the same transaction as the claim (whose update is its
   first write, so it holds the state row): `status: running` (§6.0), `attempts + 1`, `started_at` if
-  unset. Claim and count are one step, so two deliveries can never both count, nor both run. If the
-  run's `attempts` has already reached the budget (§6.4), the claim instead finishes it as
+  unset. Claim and count are one step, so two deliveries can never both count, nor both run. A claim
+  only succeeds on a run with no live lease; if that run's `attempts` has already reached the budget
+  (§6.4), the claim instead finishes it, as `cancelled` if `cancel_requested` is set, otherwise as
   `interrupted`.
 - **Run already finished, or no longer holding the slot:** the delivery is acknowledged and does
   nothing (a duplicate, or a run that was released).
@@ -361,8 +362,17 @@ own recovery:
   `dispatched` or `running` with no lease or a lease older than 120 s (its delivery died or ran out
   of retries). Each re-dispatch is recorded under the slot fence (§6.0), at most once per two
   minutes per run, so recovery cannot flood the queue.
-- **The budget:** a run whose `attempts` has reached five is not re-dispatched; recovery finishes it
-  as `interrupted` under the slot fence (or the next claim does, §6.2), keeping what it wrote.
+- **The budget, without cutting off the last attempt:** `attempts` counts attempts started, so it
+  reaches five when the fifth begins, and that attempt must be allowed to finish. Recovery takes the
+  slot fence (§6.0) first, so it holds the state row, then re-reads the lease and the current time
+  under that lock:
+  - a **live lease** (younger than 120 s) is left alone, whatever `attempts` says, the fifth attempt
+    included;
+  - a run with **no lease or an expired one** and fewer than five attempts is re-dispatched;
+  - a run with **no lease or an expired one** and five attempts is finished, keeping what it wrote:
+    as `cancelled` if `cancel_requested` is set, otherwise as `interrupted`.
+
+  A claim (§6.2) applies the same last rule when it finds the budget spent.
 - **When recovery runs:** whenever the docs-sync state is read (the card, §9; a refused start), and
   from a scheduled task every five minutes (`docs_sync_recover`, beside `import_export_cleanup`), so
   a stuck run is picked up even when nobody opens the card. This is recovery of a sync someone
@@ -383,7 +393,8 @@ again.
 - **The order is the lock's.** Cancel and finishing both write the state row first, so one commits
   before the other: Cancel first means the run finishes as `cancelled`, even if its last page was
   already written; finishing first means the slot is released and Cancel reports the run had
-  finished. A Cancel during the last page therefore never records a success or moves `synced_run`.
+  finished. For a Cancel during the last page: committed before finishing, it prevents the success
+  and leaves `synced_run` unchanged; finishing committed first, the success stands and Cancel says so.
 - **Release** (`POST …/release`) is offered when a run's lease is older than 120 s or it was never
   claimed. It finishes the run as `interrupted` with `UPDATE docs_sync_state SET active_run = NULL,
   lease_token = NULL WHERE site = 'site' AND active_run = :run AND (lease_token IS NULL OR lease_at <
@@ -514,6 +525,9 @@ Leases and fencing (the page content is asserted, not only the records):
 - A stale attempt (fenced out while resolving or downloading) cannot store `ref`, `sha` or
   `archive_path`, record a failure or finish the run of its successor.
 - Five attempts without finishing: `interrupted`, with the pages already written kept.
+- **A healthy fifth attempt while recovery runs:** recovery (from the card and from the scheduled
+  task) leaves it alone and it finishes `success`. The same attempt then stalled until its lease
+  expires: recovery finishes the run `interrupted`; with `cancel_requested` set, `cancelled`.
 - **With the real worker timeout and no duplicate delivery:** a delivery that times out on every try
   until the queue gives up is recovered by `docs_sync_recover` and continues, and the run ends
   `success` or, once its budget is spent, `interrupted`; it never stays `running`.
