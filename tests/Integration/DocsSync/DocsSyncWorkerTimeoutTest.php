@@ -88,29 +88,20 @@ final class DocsSyncWorkerTimeoutTest extends AppTestCase
         ]);
     }
 
-    public function testTheQueueStopsDeliveringAFailingSyncJob(): void
+    public function testTheQueueDeliversAFailingSyncJobOnce(): void
     {
-        // Every push says maxAttempts 1. The database queue counts a delivery's attempt only after
-        // the worker has read the row (DatabaseQueue reserves with attempts + 1 but hands the job
-        // the row it read), so a job allowed one attempt is delivered twice before it fails: a
-        // framework off-by-one, reported separately. The sync does not depend on it: a duplicate
-        // delivery waits behind the live lease or finds the run finished. What must hold: the
-        // queue gives up, and never delivers it a third time.
+        // Every push says maxAttempts 1, and since glueful/framework 1.93.1 the database queue
+        // counts the attempt a delivery is on, so a failing sync job is delivered once and then
+        // fails: recovery, not the queue, decides whether the run gets another attempt.
         $this->container()->get(QueueManager::class)
             ->push(DocsSyncJob::class, DocsSyncJob::payload('', null), 'import-export');
-        $queued = fn () => $this->connection()->table('queue_jobs')->where('queue', '=', 'import-export')->get();
-        $failed = fn () => $this->connection()->table('queue_failed_jobs')->where('queue', '=', 'import-export')->get();
 
-        for ($delivery = 1; $delivery <= 3 && $queued() !== []; $delivery++) {
-            $this->connection()->table('queue_jobs')->where('queue', '=', 'import-export')
-                ->update(['available_at' => gmdate('Y-m-d H:i:s', time() - 5)]);
-            $this->work(10);
-        }
+        $this->work(10);
 
-        self::assertSame([], $queued());
-        self::assertCount(1, $failed());
-        self::assertStringContainsString('DocsSyncJob', (string) $failed()[0]['payload']);
-        self::assertLessThanOrEqual(3, $delivery, 'delivered at most twice');
+        self::assertCount(0, $this->connection()->table('queue_jobs')->where('queue', '=', 'import-export')->get());
+        $failed = $this->connection()->table('queue_failed_jobs')->where('queue', '=', 'import-export')->get();
+        self::assertCount(1, $failed);
+        self::assertStringContainsString('DocsSyncJob', (string) $failed[0]['payload']);
     }
 
     public function testADeliveryKilledByTheWorkerTimeoutIsRecoveredAndFinishes(): void

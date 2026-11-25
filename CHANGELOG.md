@@ -18,6 +18,9 @@ as the next release, never a mutated tag.
   Health, so finding out about a release before the daily 04:00 check meant knowing to look there.
 
 ### Fixed
+- **A queued job that keeps failing stops after the attempts it is allowed.** On the database queue
+  (Thallo's default) every failing job ran once more than its limit: a job allowed one attempt was
+  retried once. Requires glueful/framework 1.93.1, which the update brings.
 - **A Markdown import of an empty folder is refused.** It reported every page as gone; now it says
   the folder holds no Markdown files and writes nothing.
 
