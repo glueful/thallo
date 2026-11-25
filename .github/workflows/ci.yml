@@ -75,6 +75,7 @@ env:
   # ~65s alone. Split from A when A outgrew the watchdog (323s locally, killed on CI at 94%).
   INTEGRATION_SHARD_F: >-
     tests/Integration/Search
+    tests/Integration/DocsSync
   # ~25s alone. The template tests left Render when A was killed again at 92% on CI at 241s locally
   # (CI ran ~3.7x slower than local that day: keep a shard under ~3 minutes locally). Their own
   # shard, not F's: beside Search they took F from 65s to 3m54s locally — paired, both sets ran
