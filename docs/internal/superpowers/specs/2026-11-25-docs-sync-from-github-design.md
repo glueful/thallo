@@ -1,9 +1,21 @@
 # Docs sync from GitHub — design
 
-Status: revision 4 (2026-11-25). Core, importers pack, tenancy pack (table registration) and admin.
+Status: revision 5 (2026-11-25). Core, importers pack, tenancy pack (table registration) and admin.
 No framework change.
 
-Revision 4 changes how a sync runs. Revision 3 handed the work to the import-export extension's jobs
+Revision 5 tightens revision 4's contracts after its review, with no change of architecture:
+
+- every delivery carries its workspace and does its work inside it (§6.1, §6.2);
+- an attempt downloads to its own file and the run reuses only a completed, recorded archive (§6.3);
+- every change to a run after it is claimed is fenced by the owner's lease, not only page writes;
+  status changes never move backwards (§6.0);
+- a run whose queue message ran out of retries is recovered by the sync itself, which keeps its own
+  attempt budget (§6.4);
+- a page that fails rolls back its own changes inside a savepoint, then records the failure (§6.3);
+- finishing and cancelling are ordered by the same lock, so a Cancel during the last page cannot be
+  recorded as a success (§6.5).
+
+Revision 4 changed how a sync runs. Revision 3 handed the work to the import-export extension's jobs
 and coordinated with them from outside; every review found another gap there (retries that rerun an
 old archive, reservations the original request could outlive, report rows capped at 1,000, outcomes
 lost to the 30-day cleanup), because that job system has its own retries, cancellation, retention and
@@ -134,10 +146,12 @@ The source:
 | `revision`, `source` | The source revision the run was started under, and a copy of the source then. The run uses only the copy. |
 | `mode` | `commit` or `dry_run`. |
 | `ref`, `sha` | What was followed (tag or branch name) and the commit it resolved to (§5). |
-| `status` | `reserved` → `dispatched` → `running` → `finished` (§6). |
+| `status` | `reserved` → `dispatched` → `running` → `finished` (§6). Only ever moves forward (§6.0). |
 | `outcome` | Set when `finished` (§7). |
 | `created`, `updated`, `unchanged`, `skipped`, `failed`, `gone` | Exact counters, incremented in each page's transaction (§6.3). |
-| `attempts` | Execution attempts so far. |
+| `attempts` | Execution attempts so far: the sync's own budget (§6.4), independent of queue retries. |
+| `archive_path` | The completed archive this run reads (§6.3), or null until one is recorded. |
+| `workspace` | The workspace the run was started in, or null on a site without workspaces (§6.1). |
 | `cancel_requested` | Set by Cancel (§6.5). |
 | `message` | Why a run was refused, failed or interrupted, in the owner's words. |
 | `created_by`, `created_at`, `started_at`, `finished_at` | |
@@ -188,7 +202,7 @@ version's commit equals `synced_run.sha`. A tag moved to another commit after a 
 "v1.0.0-beta.110 has changed since your sync".
 
 Limits: timeouts of 8 s for API requests and 60 s for the archive; the archive is streamed to the
-`uploads` disk at `docs-sync/{run}.zip` and refused past `import_export.max_file_size` (50 MB),
+`uploads` disk under `docs-sync/{run}/` (§6.3) and refused past `import_export.max_file_size` (50 MB),
 counted as it arrives. GitHub's anonymous limit is 60 requests an hour per server IP: the status
 note is cached for five minutes per site, and a `403`/`429` with `X-RateLimit-Remaining: 0` says
 "GitHub's hourly limit is reached; try again after HH:MM" from `X-RateLimit-Reset`.
@@ -200,22 +214,53 @@ one of the two. One service starts runs, so a scheduled task or webhook later ca
 The work happens in `DocsSyncJob`, queued on the `import-export` queue (`import_export.queue`), which
 the documented worker command already takes.
 
+### 6.0 Every change is fenced
+
+After a run is reserved, nothing changes it except through a transaction whose **first write** is a
+conditional update of the site's state row:
+
+- **The owner's fence** (the attempt working on the run):
+  `UPDATE docs_sync_state SET lease_at = now WHERE site = 'site' AND active_run = :run AND
+  lease_token = :token`. Used for storing `ref`, `sha` and `archive_path`, every page (§6.3),
+  recording a failure, and finishing. No affected row: the attempt has been fenced out; it rolls back
+  and stops, and touches neither the run nor the state.
+- **The slot fence** (anyone acting on the run from outside: dispatch recovery, Cancel, Release):
+  `UPDATE docs_sync_state SET updated_at = now WHERE site = 'site' AND active_run = :run`. No
+  affected row: the run no longer holds the slot, so it has finished; the action reports that.
+
+Because both are writes to the same row, they lock it (a row lock on PostgreSQL and MySQL; SQLite's
+write lock is the whole database) until the transaction commits, which orders every change to a run:
+an outside action waits for a page or a finish in flight, and the reverse.
+
+**Status only moves forward.** Every status update names the statuses it may move from:
+`dispatched` only from `reserved`; `running` from `reserved`, `dispatched` or `running`; `finished`
+from anything but `finished`. A late `dispatched` update after a fast worker has claimed or even
+finished the run changes nothing.
+
 ### 6.1 Start: reserve and dispatch
 
 In one transaction:
 
-1. Insert the run (`status: reserved`, the current `revision`, a copy of `source`, `mode`).
+1. Insert the run (`status: reserved`, the current `revision`, a copy of `source`, `mode`, and the
+   current `workspace`).
 2. Take the slot: `UPDATE docs_sync_state SET active_run = :run WHERE site = 'site' AND revision =
    :revision AND active_run IS NULL`. No affected row: refused (another run holds the slot, or the
    source just changed), the transaction rolls back, nothing else happens.
 3. **With the `database` queue driver on the application's connection** (Thallo's default), push
-   `DocsSyncJob {run}` and set `status: dispatched` inside the same transaction, so the run is either
-   reserved and queued or neither.
+   `DocsSyncJob {run, workspace}` and set `status: dispatched` inside the same transaction, so the run
+   is either reserved and queued or neither.
 
-**With another driver** (Redis), the push happens after commit, then `status: dispatched` is set.
-A request that dies between commit and push leaves a `reserved` run holding the slot; whenever the
-state is read (§9) or a start is refused because of it, a run still `reserved` after two minutes is
-pushed again and marked `dispatched`. Pushing twice is safe (§6.2).
+**With another driver** (Redis), the push happens after commit, then `status: dispatched` is set
+(from `reserved` only, §6.0). A request that dies between commit and push leaves a `reserved` run
+holding the slot; recovery (§6.4) pushes it again. Pushing twice is safe (§6.2).
+
+**The workspace travels with every delivery.** A queue worker is not in any request's workspace, and
+registering the tables per workspace does not put it in one. `DocsSyncJob` reads `workspace` from its
+payload and does all its work inside it, as `RunPaletteReplaceJob` does: it resolves the sync
+service, the importer and every repository inside `TenantContextRunner::runAsTenant($workspace, …)`,
+so each is built for that workspace, and only then loads the run. A long-lived worker forgets the
+previous job's workspace before each job. On a site without workspaces the payload's `workspace` is
+null and the job runs as is. Every re-dispatch (§6.2, §6.4) copies the run's `workspace`.
 
 The request answers with the run straight away: resolving, downloading and writing happen in the job,
 so the web request's time limit plays no part.
@@ -228,17 +273,21 @@ random token, in one statement:
 `UPDATE docs_sync_state SET lease_token = :token, lease_at = now WHERE site = 'site' AND active_run =
 :run AND (lease_token IS NULL OR lease_at < now - 120 s)`
 
-- **Claimed:** this attempt owns the run. `status: running`, `attempts + 1`, `started_at` if unset.
+- **Claimed:** this attempt owns the run. In the same transaction as the claim (whose update is its
+  first write, so it holds the state row): `status: running` (§6.0), `attempts + 1`, `started_at` if
+  unset. Claim and count are one step, so two deliveries can never both count, nor both run. If the
+  run's `attempts` has already reached the budget (§6.4), the claim instead finishes it as
+  `interrupted`.
 - **Run already finished, or no longer holding the slot:** the delivery is acknowledged and does
   nothing (a duplicate, or a run that was released).
 - **Another attempt's lease is live:** the delivery re-queues itself with a 60-second delay instead
   of exiting, so a run never depends on a single message surviving. After the live attempt finishes,
   the re-queued delivery sees a finished run and stops.
 
-An attempt proves its lease every time it writes (§6.3) and at least every 30 seconds while it
-resolves or downloads, with `UPDATE … SET lease_at = now WHERE active_run = :run AND lease_token =
-:token`. An attempt that finds no affected row has been fenced out: it stops at once and writes
-nothing more. **A lease older than 120 seconds only allows a takeover to be attempted; it does not
+An attempt proves its lease (the owner's fence, §6.0) with every change it makes and at least every
+30 seconds while it resolves or downloads. An attempt that finds no affected row has been fenced
+out: it stops at once and changes nothing more, not the run, not the state, not another attempt's
+files. **A lease older than 120 seconds only allows a takeover to be attempted; it does not
 prove the old attempt stopped.** The page transaction (§6.3) is what makes a takeover safe.
 
 ### 6.3 The work, page by page
@@ -246,8 +295,19 @@ prove the old attempt stopped.** The page transaction (§6.3) is what makes a ta
 An attempt:
 
 1. **Resolves** the followed version to a commit (§5) on the first attempt and stores `ref` and
-   `sha`; later attempts reuse them. With `release` it is the newest tag at that moment.
-2. **Downloads** the archive at `sha` to `docs-sync/{run}.zip`, unless an earlier attempt left it.
+   `sha` under the owner's fence; later attempts reuse them. With `release` it is the newest tag at
+   that moment.
+2. **Downloads** the archive at `sha`, unless the run already records an `archive_path`:
+   1. streamed to a file of this attempt's own, `docs-sync/{run}/{token}.zip.part`, named by its
+      lease token, so no two attempts ever write the same file;
+   2. checked complete: the byte count equals `Content-Length` when GitHub sends one, and the file
+      opens as a zip whose central directory reads (a truncated download fails here);
+   3. renamed to `docs-sync/{run}/{token}.zip`;
+   4. recorded as the run's `archive_path` under the owner's fence. A fenced-out attempt deletes its
+      own file and stops; it never touches a path it did not write.
+
+   A later attempt reuses only a recorded `archive_path`, which is complete by construction. A
+   leftover `.part`, or a finished file a fenced-out attempt never recorded, is never read.
 3. **Reads** every page through the importer's read step (§8): the folder `within` the archive,
    front matter, slugs, and the links between pages, which need every page. A folder with no pages,
    or a GitHub refusal, finishes the run as `refused` (§7) before anything is written.
@@ -256,8 +316,15 @@ An attempt:
    1. prove the lease: `UPDATE docs_sync_state SET lease_at = now WHERE site = 'site' AND
       active_run = :run AND lease_token = :token`; no affected row: roll back and stop (fenced out);
    2. if the run's `cancel_requested` is set: roll back and finish as `cancelled` (§6.5);
-   3. the importer's write step for this page (§8), or with `dry_run` its comparison only;
-   4. insert the page's `docs_sync_run_pages` row and increment the run's counter for its status;
+   3. **inside a savepoint**, the importer's write step for this page (§8), or with `dry_run` its
+      comparison only. If it throws at any point (after the draft was saved and before the slug or
+      publication, say), the savepoint is rolled back, so none of that page's changes remain, and
+      the result is `failed` with the error. The outer transaction, and with it the state-row lock,
+      stays open. The importer's deliberate "draft saved, publication held by the review workflow"
+      is a result, not an exception: its savepoint is kept and the page is recorded as written,
+      with that message;
+   4. insert the page's `docs_sync_run_pages` row and increment the run's counter for its status
+      (for a failed page: `failed`, with the message);
    5. commit.
 
    The lease update is the transaction's first write, so it locks the state row (a row lock on
@@ -267,29 +334,56 @@ An attempt:
    never land after its slot was reassigned, and a page is never half-written.** The importer's own
    transactions nest inside as savepoints, which the framework supports; work it schedules for after
    commit (events, search indexing) waits for this transaction, so a page rolled back leaves nothing.
-5. **Finishes** in one transaction, which proves the lease like 4.1: the pages a previous import
-   made from files no longer in the folder are recorded as `gone` rows; the run's outcome is set
-   (§7); for a `commit` run that landed, `synced_run` is set if the run's `revision` equals the
+5. **Finishes** in one transaction, which proves the lease like 4.1 and then reads
+   `cancel_requested` while holding the state row: if it is set, the run finishes as `cancelled`
+   (§6.5), not by the steps below. Otherwise the pages a previous import made from files no longer
+   in the folder are recorded as `gone` rows; the run's outcome is set (§7); for a `commit` run that landed, `synced_run` is set if the run's `revision` equals the
    state's and the current `synced_run` is null or older; the slot and lease are released
-   (`active_run`, `lease_token` null); `status: finished`. The archive file is then deleted.
+   (`active_run`, `lease_token` null); `status: finished`. This attempt then deletes the files it
+   wrote under `docs-sync/{run}/`. Files a fenced-out attempt left there are removed by the pruning
+   task once the run has been finished for a day; nothing deletes a file a live attempt may still be
+   writing.
 
-### 6.4 Interrupted attempts and time limits
+### 6.4 Interrupted attempts, time limits and recovery
 
 The worker's time limit (60 s unless the site raises it) and crashes still apply. An attempt killed
 mid-page rolls that page back with its transaction; the pages before it are committed with their
-rows and counts. The queue delivers the job again (the worker's retry), or §6.2's re-queue does: the
-next attempt takes over once the lease is 120 s old and continues with the pages not yet recorded,
-so a large folder finishes over several attempts. After five attempts without finishing, the run is
-finished as `interrupted`, keeping what it wrote. A synchronous side effect of a page that rolled
+rows and counts. The next attempt takes over once the lease is 120 s old and continues with the
+pages not yet recorded, so a large folder finishes over several attempts.
+
+**The sync does not rely on the queue's retries.** The framework retries a job at most the smaller of
+the job's and the worker's limits (three by default), after which the delivery is gone into failed
+jobs while the run would still be `running`. So the run keeps its own budget, `attempts`, and has its
+own recovery:
+
+- **Recovery** looks at the site's run holding the slot and re-dispatches it (a new
+  `DocsSyncJob {run, workspace}`) when it is `reserved` for over two minutes (never pushed), or
+  `dispatched` or `running` with no lease or a lease older than 120 s (its delivery died or ran out
+  of retries). Each re-dispatch is recorded under the slot fence (§6.0), at most once per two
+  minutes per run, so recovery cannot flood the queue.
+- **The budget:** a run whose `attempts` has reached five is not re-dispatched; recovery finishes it
+  as `interrupted` under the slot fence (or the next claim does, §6.2), keeping what it wrote.
+- **When recovery runs:** whenever the docs-sync state is read (the card, §9; a refused start), and
+  from a scheduled task every five minutes (`docs_sync_recover`, beside `import_export_cleanup`), so
+  a stuck run is picked up even when nobody opens the card. This is recovery of a sync someone
+  started, not an automatic sync: it never starts a run.
+- `DocsSyncJob` sets its own queue retry limit low (one): a delivery that fails is not retried by
+  the queue; recovery decides. A synchronous side effect of a page that rolled
 back (a cache purge, say) may already have happened; it is harmless, since the page will be written
 again.
 
 ### 6.5 Cancel and Release
 
-- **Cancel** (`POST /v1/admin/docs-sync/run/{run}/cancel`) sets `cancel_requested`. A running attempt
-  sees it before its next page (§6.3, 4.2), keeps the slot until the page in flight commits, then
-  finishes the run as `cancelled`. A run with no live lease (still reserved or dispatched, or its
-  attempt died) is finished as `cancelled` straight away, by the same compare-and-set as Release.
+- **Cancel** (`POST /v1/admin/docs-sync/run/{run}/cancel`) is one transaction that takes the slot
+  fence (§6.0) first. **No affected row:** the run already finished, and Cancel answers "this sync
+  had already finished", with its outcome. **Otherwise** it sets `cancel_requested`, and if the run
+  has no live lease (still reserved or dispatched, or its attempt died) finishes it as `cancelled`
+  in the same transaction. A running attempt sees the flag before its next page (§6.3, 4.2) or
+  while finishing (§6.3, 5), and finishes as `cancelled`; the page in flight commits first.
+- **The order is the lock's.** Cancel and finishing both write the state row first, so one commits
+  before the other: Cancel first means the run finishes as `cancelled`, even if its last page was
+  already written; finishing first means the slot is released and Cancel reports the run had
+  finished. A Cancel during the last page therefore never records a success or moves `synced_run`.
 - **Release** (`POST …/release`) is offered when a run's lease is older than 120 s or it was never
   claimed. It finishes the run as `interrupted` with `UPDATE docs_sync_state SET active_run = NULL,
   lease_token = NULL WHERE site = 'site' AND active_run = :run AND (lease_token IS NULL OR lease_at <
@@ -365,8 +459,8 @@ History
   pages gone.
 - While a run holds the slot: the card shows it running ("Writing page 30 of 53"), polled from the
   run's counters; Sync now, Preview and Edit source are disabled; **Cancel** is offered; **Release**
-  appears when the lease is older than 120 s or the run was never claimed. A run still `reserved`
-  after two minutes is re-dispatched on this read (§6.1).
+  appears when the lease is older than 120 s or the run was never claimed. Opening the card runs
+  recovery (§6.4).
 - The form: repo, folder, follow (latest release / branch), branch, pre-releases, content type
   (with **Set up documentation** when there is none, as the zip import offers), publish, folders to
   leave out. Saving runs the check in §4.
@@ -389,13 +483,22 @@ GitHub client, with `MockHttpClient`:
 - The archive is requested by SHA, never by tag; over the size cap it is refused mid-stream.
 - No request goes to any other host.
 
+Workspaces:
+
+- A freshly booted worker runs a queued sync in the run's workspace: its pages, runs and state rows
+  are that workspace's.
+- Two runs for two workspaces delivered one after another to the same worker: each writes only to its
+  own workspace; the second does not inherit the first's.
+
 Start and dispatch:
 
 - Two simultaneous starts: exactly one takes the slot; the other is refused and queues nothing.
 - A start after the source changed between the read and the reservation is refused.
 - Database queue: a failure after the slot is taken and before commit leaves no run, no slot and no
   queued job.
-- Other driver: a run reserved but never pushed is re-dispatched by the next read after two minutes.
+- Other driver: a run reserved but never pushed is re-dispatched by recovery after two minutes.
+- Fast worker: the job claims and finishes the run before the request's `dispatched` update runs;
+  the update changes nothing and the run stays `finished`.
 - Editing or removing the source while a run holds the slot is refused.
 
 Leases and fencing (the page content is asserted, not only the records):
@@ -408,12 +511,34 @@ Leases and fencing (the page content is asserted, not only the records):
 - A takeover after the lease expired while A was paused between pages: A's next write is refused.
 - An attempt killed mid-page: that page is rolled back, no row or count for it; the next attempt
   writes it and the counters equal the page rows.
+- A stale attempt (fenced out while resolving or downloading) cannot store `ref`, `sha` or
+  `archive_path`, record a failure or finish the run of its successor.
 - Five attempts without finishing: `interrupted`, with the pages already written kept.
+- **With the real worker timeout and no duplicate delivery:** a delivery that times out on every try
+  until the queue gives up is recovered by `docs_sync_recover` and continues, and the run ends
+  `success` or, once its budget is spent, `interrupted`; it never stays `running`.
+
+Archives:
+
+- A download truncated mid-stream fails the completeness check, records no `archive_path`, and the
+  next attempt downloads again.
+- Two overlapping downloads (a stalled attempt resumes after takeover): each writes only its own
+  file; only the owner's is recorded and read; the stale one's is never read, and it never deletes
+  or overwrites the owner's.
+
+Pages:
+
+- A page whose write throws after its draft changed and before its slug or publication: none of its
+  changes remain, it is recorded `failed`, and the run continues with the next page.
+- A page whose publication is held by the review workflow keeps its saved draft and is recorded as
+  written, with the message.
 
 Cancel:
 
 - Cancel while a page is being written: the page commits, no further page is written, the run is
   `cancelled` with exact counts, the slot is released after the page.
+- **Cancel during the last page:** committed before finishing → `cancelled`, `synced_run` unchanged;
+  finishing committed first → Cancel answers that the run had finished.
 - Cancel of a run that was never claimed finishes it at once.
 
 Revisions and outcomes:
@@ -448,8 +573,8 @@ Admin and access:
 
 - Class and file names, where the GitHub client lives (core or the importers pack), and the exact
   API response shapes.
-- The migration's number, indexes beyond those named, and the pruning task (a scheduled entry beside
-  `import_export_cleanup`).
+- The migration's number, indexes beyond those named, and the pruning and recovery tasks' exact
+  schedule entries (beside `import_export_cleanup`).
 - The exact shape of the importer's two steps, as long as `run()` keeps its behaviour and no rule is
   duplicated.
 - The card's exact wording and layout within the admin's existing patterns.
