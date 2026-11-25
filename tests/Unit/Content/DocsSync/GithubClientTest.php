@@ -81,11 +81,10 @@ final class GithubClientTest extends TestCase
 
     public function testHighestVersionTagWinsAcrossPages(): void
     {
+        $next = 'https://api.github.com/repos/glueful/thallo/git/matching-refs/tags/?page=2';
         $client = $this->client([
             '/repos/glueful/thallo/git/matching-refs/tags/' => self::json(self::refs(['v1.0.0', 'v1.2.0']), [
-                'response_headers' => [
-                    'link' => '<https://api.github.com/repos/glueful/thallo/git/matching-refs/tags/?page=2>; rel="next"',
-                ],
+                'response_headers' => ['link' => '<' . $next . '>; rel="next"'],
             ]),
             '/repos/glueful/thallo/git/matching-refs/tags/?page=2' => self::json(self::refs(['v1.10.0', 'v1.9.0'])),
         ]);
